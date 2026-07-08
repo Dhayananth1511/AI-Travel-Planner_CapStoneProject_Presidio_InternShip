@@ -4,18 +4,9 @@ This repository contains the architecture, workflow designs, and system integrat
 
 ---
 
-## MAP: Applied Curriculum Topics
-* **Week 1 (Foundations & DSA)**: MongoDB Indexing configuration (`userId`, `tripId`, `status`), schema validations, and Git Branching strategies.
-* **Week 2 (Backend)**: Express.js REST application styled as **MVC structure with Planner Services**, global rates throttling, Morgan logs, JWT validation, and RBAC auth.
-* **Week 3 (Frontend)**: React Single Page Application utilizing Vite, Zustand state, **React Hook Form + Zod input verification**, caching via **TanStack Query**, and **Chart.js** data visualizations.
-* **Week 4 (DevOps)**: GitHub Actions test loops, Docker container packaging, and infra automation using **Terraform on AWS (EC2 / S3 / CloudFront / Security Groups)**.
-* **Week 5 (Agentic AI)**: Multi-agent coordination (Destination, Transport, and Itinerary agents) run by an orchestrating **Coordinator Agent** using **Groq LLM API**, featuring LangChain Tool integrations, deterministic calculations, and session state memory.
-
----
-
 ## 1. Traveler Workflow
 
-Traces the execution path starting from client-side Zod form validation, JWT validation, service orchestration, external API tool calling, and human-in-the-loop validation, down to MongoDB persistence.
+Traces the execution path starting from client-side Zod form validation, JWT validation, service orchestration, standardized MCP tool calling protocols, and human-in-the-loop validation, down to MongoDB persistence.
 
 ```mermaid
 graph TD
@@ -41,7 +32,7 @@ graph TD
     ExpressRouter --> PlannerService["Planner Service Layer<br/>(Separates controller from AI orchestration)"]:::process
     PlannerService --> FetchMem["Load Turn History from Conversation Memory"]:::process
     
-    FetchMem --> Orchestrator["Coordinator Agent<br/>(LangChain Executor with Memory context)"]:::agent
+    FetchMem --> Orchestrator["Coordinator Agent<br/>(MCP Client Agent utilizing Memory context)"]:::agent
     Orchestrator --> ParseIntent["Understand User Intent & Requirements"]:::process
     ParseIntent --> SplitTasks["Break Input into Sub-Tasks"]:::process
     
@@ -55,9 +46,9 @@ graph TD
     
     BudgetJS --> ItinAgent["Itinerary Agent<br/>Assemble scheduling sequence"]:::agent
     
-    ItinAgent --> Coordinator["Coordinator Agent<br/>Reconsolidates Context"]:::agent
+    ItinAgent --> Coordinator["Coordinator Agent<br/>(Aggregates agent data)"]:::agent
     
-    Coordinator --> ToolCall["Execute Agent Tools<br/>Weather & Maps API calls"]:::api
+    Coordinator --> ToolCall["MCP Client Tool Request<br/>(Launches standardized MCP protocol requests)"]:::api
     
     ToolCall --> GenPlan["Generate Final Travel Plan via Groq API (Free)<br/>(Async/Await processing)"]:::process
     GenPlan --> HITL{"Human-in-the-Loop Confirmation<br/>'Do you approve this travel plan?'"}:::process
@@ -65,7 +56,7 @@ graph TD
     HITL -->|Approve| SaveDB["Save Trip to MongoDB Atlas<br/>(Mongoose write validations)"]:::process
     HITL -->|Reject| ModifyReq["Modify Requirements & Send Back"]:::process
     
-    SaveDB --> ScheduleRem["Schedule Reminders (Calendar Tool Integration)"]:::process
+    SaveDB --> ScheduleRem["Schedule Reminders (Calendar MCP Server Tool)"]:::process
     ModifyReq --> Orchestrator
     
     ScheduleRem --> UpdateStatus["Update Trip Status<br/>(Draft ➔ Planned ➔ Confirmed)"]:::process
@@ -76,7 +67,7 @@ graph TD
 
 ## 2. Admin Workflow
 
-Details admin authorization, role validation middleware, navigation to administrative management sections, and metrics visualization dashboards. Admin features fetch directly from database indexes without hitting AI.
+Details admin authorization, role validation middleware, navigation to administrative management sections, and metrics visualization dashboards. Admin features fetch directly from database indexes without hitting AI interface layers.
 
 ```mermaid
 graph TD
@@ -101,7 +92,7 @@ graph TD
 
 ## 3. AI Agent Internal Flow
 
-Highlights sequential planning execution and conditional routing (handling ambiguity, budget checks, confidence failures, tool calling, and human validation) to complete traveler goals.
+Highlights sequential planning execution and conditional routing (handling ambiguity, budget checks, confidence failures, MCP tool calling, and human validation) to complete traveler goals.
 
 ```mermaid
 graph TD
@@ -118,7 +109,7 @@ graph TD
     %% Turn State Memory
     PlannerService --> FetchMem["Load Turn History from Conversation Memory"]:::process
     
-    FetchMem --> Coord["Coordinator Agent<br/>(LangChain Agent Orchestrator)"]:::agent
+    FetchMem --> Coord["Coordinator Agent<br/>(MCP Client Agent)"]:::agent
     Coord --> Parse["Decompose Goal & Parse Intent"]:::process
     
     %% Edge Case: Ambiguous Goals
@@ -142,11 +133,11 @@ graph TD
     CheckBudget -->|Yes| ItinAgent["5. Itinerary Agent<br/>(Assemble daily scheduling)"]:::agent
     
     %% Tool Calling
-    ItinAgent --> Tools["LangChain Tool executor"]:::tool
-    subgraph LangchainTools ["Integration Tools"]
-        WeatherTool["Weather Tool (OpenMeteo API)"]:::tool
-        MapsTool["Maps Tool (Google Maps API)"]:::tool
-        CalendarTool["Calendar Tool (Google Calendar API)"]:::tool
+    ItinAgent --> Tools["Orchestrate tool requests via Model Context Protocol"]:::tool
+    subgraph MCPRegistries ["MCP Server Registry Tools"]
+        WeatherTool["Weather MCP Server (OpenMeteo Protocol)"]:::tool
+        MapsTool["Maps MCP Server (Google Maps Protocol)"]:::tool
+        CalendarTool["Calendar MCP Server (Google Calendar Protocol)"]:::tool
     end
     Tools --> WeatherTool
     Tools --> MapsTool
@@ -240,7 +231,7 @@ graph TD
 
 ## 5. Complete System Architecture
 
-Maps out the structural tier boundaries: Frontend Web Client, Service Layer context, AI Agent orchestration cluster, External Integrations, and persistent database layers.
+Maps out the structural tier boundaries: Frontend Web Client, Service Layer context, AI Agent orchestration cluster, External MCP Integrations, and persistent database layers.
 
 ```mermaid
 graph TD
@@ -281,7 +272,7 @@ graph TD
         BudgetJS["Deterministic Budget Calculator<br/>(Deterministic JS functions)"]:::backend
         PlannerService --> BudgetJS
         
-        AIPlanner["AI Agent Orchestrator (LangChain JS)"]:::backend
+        AIPlanner["AI Agent Orchestrator (LangChain / MCP Client)"]:::backend
         PlannerService --> AIPlanner
         
         %% Sub-agents cluster
@@ -310,10 +301,10 @@ graph TD
     subgraph ExtTier ["External Services & Infrastructure (Week 4)"]
         LLM["Groq LLM API (Free)"]:::ext
         
-        subgraph LCTools ["LangChain Tools"]
-            WeatherTool["Weather Tool (OpenMeteo API)"]:::ext
-            MapsTool["Maps Tool (Google Maps API)"]:::ext
-            CalendarTool["Calendar Tool (Google Calendar API)"]:::ext
+        subgraph LCTools ["Standardized MCP Servers"]
+            WeatherTool["Weather MCP Server (OpenMeteo Protocol)"]:::ext
+            MapsTool["Maps MCP Server (Google Maps Protocol)"]:::ext
+            CalendarTool["Calendar MCP Server (Google Calendar Protocol)"]:::ext
         end
         
         AWSSecrets["AWS Secrets Manager / KMS"]:::ext
@@ -329,7 +320,7 @@ graph TD
     Queries -->|JSON REST Requests| API
     PlannerService -->|Search & Update History| MemStore
     Coord -->|Inference Query| LLM
-    LLM -->|Invokes Tools| LCTools
+    LLM -->|Standardized MCP Requests| LCTools
     Coord -->|Store Completed Trip Profile| DB
     PlannerService -->|Read Secrets| AWSSecrets
     API -.->|Metrics & Diagnostics| CloudWatch
