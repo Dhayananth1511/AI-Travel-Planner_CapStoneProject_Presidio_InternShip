@@ -1,16 +1,24 @@
-# Presidio Capstone Project - Architecture & Workflow Diagrams
+# Travel Planner AI Agent - Capstone Project Documentation
 
-This document contains visual diagrams mapping out the Traveler Workflow, Admin Workflow, AI Agent Internal Decision Logic, Project Development/CI-CD Pipelines, and Overall System Architecture. 
+This repository contains the architecture, workflow designs, and system integration details for the Travel Planner AI Client/Server application. The project serves as a comprehensive capstone integrating the architectural principles and technologies studied from **Week 1 through Week 5**.
 
-To ensure compatibility across all viewing environments, each workflow is presented as an interactive, fully styled **Mermaid.js Flowchart** (supported in GitHub, GitLab, and most Markdown editors) and a **Perfectly Aligned ASCII Flowchart** (for raw text viewers and terminal screens).
+---
+
+## 🗺️ Curriculum Integration (Week 1–5 Reference)
+
+The architecture is built upon the following learning objectives:
+* **Week 1 (Foundations & DSA)**: Schema design optimization, indexing configurations on database layers, and Git branching rules for robust repository management.
+* **Week 2 (Backend Engineering)**: Node.js Express application utilizing the **MVC (Model-View-Controller) Design Pattern**, global error handling middleware, request rate-limiting, logging (Morgan/Winston), and async/await processing patterns.
+* **Week 3 (Frontend & UX)**: Single Page Application (SPA) designed with React, TypeScript, state management (Zustand/Context), form state handling via **React Hook Form + Zod Schema Validation**, and optimized HTTP fetches/caching using **TanStack Query**.
+* **Week 4 (DevOps & Infrastructure)**: Automated build checks using GitHub Actions, containerization using Docker, secrets protection using Cloud Key Management, and Infrastructure as Code (IaC) provisioning using **Terraform on AWS (EC2, S3, CloudFront, and Security Groups)**.
+* **Week 5 (Agentic AI)**: Multi-Agent design featuring specialized decision blocks (Destination, Budget, Transport, Accommodation, and Itinerary agents) orchestrated by a centralized **Coordinator Agent** running on the free **Groq LLM API**.
 
 ---
 
 ## 1. Traveler Workflow
 
-Maps the step-by-step logic from traveler registration/login through AI-driven plan generation, API integrations, and human-in-the-loop approval processes.
+Traces the execution path starting from client-side Zod form validation, user auth authorization, Express router middleware, agent orchestration, external API tool calling, and human-in-the-loop validation, down to MongoDB persistence.
 
-### 📊 Interactive Mermaid Diagram
 ```mermaid
 graph TD
     %% Styling and config
@@ -20,195 +28,56 @@ graph TD
     classDef agent fill:#f9e2af,stroke:#f9e2af,stroke-width:2px,color:#11111b;
     classDef api fill:#f5c2e7,stroke:#f5c2e7,stroke-width:2px,color:#11111b;
     
-    Traveler([Traveler]):::startEnd --> Auth["User Registration / Login<br/>JWT/RBAC Auth"]:::process
-    Auth --> Dashboard["User Dashboard"]:::process
+    Traveler([Traveler]):::startEnd --> ClientInput["Dashboard Input Form<br/>(Client Validation: Hook Form + Zod)"]:::process
+    ClientInput --> Auth["User Registration / Login<br/>JWT/RBAC Auth Middleware"]:::process
+    Auth --> FetchData["Fetch User Dashboard Data<br/>(TanStack Query caching, API Pagination & Filters)"]:::process
     
-    Dashboard --> Create["Create New Trip"]:::process
-    Dashboard --> View["View Existing Trips"]:::process
+    FetchData --> Create["Create New Trip Request"]:::process
+    FetchData --> View["View Existing Trips"]:::process
     
-    Create --> InputGoal["User Enters Natural Language Goal<br/>e.g. 'Plan a 5-day trip to Manali for 2 people within ₹30,000'"]:::process
+    Create --> InputGoal["User enters Goal Input<br/>e.g., 'Plan a 5-day trip to Manali for 2 people within ₹30,000'"]:::process
     View --> InputGoal
     
-    InputGoal --> Orchestrator["Coordinator Agent<br/>(Receives requests & manages others)"]:::agent
+    InputGoal --> ExpressRouter["Express.js Server Router<br/>Rate-limiting via express-rate-limit<br/>Morgan/Winston Session Logging"]:::process
+    
+    ExpressRouter --> Orchestrator["Coordinator Agent<br/>(Manages sub-agents: Dest, Budget, Trans, Accom, Itin)"]:::agent
     Orchestrator --> ParseIntent["Understand User Intent & Requirements"]:::process
-    ParseIntent --> SplitTasks["Break Goal Into Multiple Sub-Tasks"]:::process
+    ParseIntent --> SplitTasks["Break Input into Agent Sub-Tasks"]:::process
     
-    SplitTasks --> DestAgent["Destination Agent<br/>Choose Destination based on budget"]:::agent
-    SplitTasks --> BudgetAgent["Budget Agent<br/>Ensure staying within budget limit"]:::agent
-    SplitTasks --> TransAgent["Transport Agent<br/>Plan buses, trains, flights, local transp"]:::agent
-    SplitTasks --> AccomAgent["Accommodation Agent<br/>Recommend hotels / homestays"]:::agent
-    SplitTasks --> ItinAgent["Itinerary Agent<br/>Generate Day-by-Day travel schedule"]:::agent
+    SplitTasks --> DestAgent["Destination Agent<br/>Select ideal location based on budget"]:::agent
+    SplitTasks --> BudgetAgent["Budget Agent<br/>Ensure cost-estimates stay under threshold"]:::agent
+    SplitTasks --> TransAgent["Transport Agent<br/>Plan flight/train/bus connections"]:::agent
+    SplitTasks --> AccomAgent["Accommodation Agent<br/>Search hotels & homestays"]:::agent
+    SplitTasks --> ItinAgent["Itinerary Agent<br/>Generate day-by-day travel schedule"]:::agent
     
-    DestAgent --> Coordinator["Coordinator Agent<br/>Combine & Manage Outputs"]:::agent
+    DestAgent --> Coordinator["Coordinator Agent<br/>Reconsolidates Sub-Agent Context"]:::agent
     BudgetAgent --> Coordinator
     TransAgent --> Coordinator
     AccomAgent --> Coordinator
     ItinAgent --> Coordinator
     
-    Coordinator --> BuildPlan["Build Complete Trip Plan"]:::process
-    BuildPlan --> ToolCall["Call External APIs / Tools"]:::process
+    Coordinator --> BuildPlan["Compile Complete Trip Document Schema"]:::process
+    BuildPlan --> ToolCall["External APIs / Tool Calling<br/>OpenMeteo Weather API & Google Maps API"]:::api
     
-    ToolCall --> WeatherAPI["Weather API"]:::api
-    ToolCall --> MapsAPI["Maps API"]:::api
-    ToolCall --> CalendarTool["Calendar Tool"]:::api
+    ToolCall --> GenPlan["Generate Final Travel Plan via Groq API (Free)<br/>(Async/Await processing)"]:::process
+    GenPlan --> HITL{"Human-in-the-Loop Confirmation<br/>'Do you approve this travel plan?'"}:::process
     
-    WeatherAPI --> MergePlan["Generate Final AI Travel Plan"]:::process
-    MapsAPI --> MergePlan
-    CalendarTool --> MergePlan
-    
-    MergePlan --> HITL{"Human-in-the-Loop Confirmation<br/>'Do you approve this travel plan?'"}:::process
-    
-    HITL -->|Approve| SaveDB["Save Trip into MongoDB"]:::process
+    HITL -->|Approve| SaveDB["Save Trip to MongoDB Atlas<br/>(Mongoose write validations)"]:::process
     HITL -->|Reject| ModifyReq["Modify Requirements & Send Back"]:::process
     
-    SaveDB --> ScheduleRem["Schedule Reminder / Calendar"]:::process
+    SaveDB --> ScheduleRem["Schedule Reminders (Calendar Integration)"]:::process
     ModifyReq --> Orchestrator
     
     ScheduleRem --> UpdateStatus["Update Trip Status<br/>(Draft ➔ Planned ➔ Confirmed)"]:::process
-    UpdateStatus --> DashboardUpdate([User Dashboard Updated]):::startEnd
+    UpdateStatus --> DashboardUpdate([User Dashboard UI Updated]):::startEnd
 ```
-
-<details>
-<summary><b>👁️ View Plaintext ASCII Diagram</b></summary>
-
-```text
-                               ┌────────────────────────────────────────┐
-                               │                Traveler                │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │       User Registration / Login        │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │       JWT Authentication + RBAC        │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │             User Dashboard             │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                         ┌─────────────────────────┴─────────────────────────┐
-                         ▼                                                   ▼
-             ┌───────────────────────┐                           ┌───────────────────────┐
-             │    Create New Trip    │                           │  View Existing Trips  │
-             └───────────┬───────────┘                           └───────────┬───────────┘
-                         │                                                   │
-                         └─────────────────────────┬─────────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │   User Enters Natural Language Goal    │
-                               │   Example: "Plan a 5-day trip to       │
-                               │   Manali for 2 people within ₹30,000"  │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │     Coordinator Agent (Manager)        │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │ Understand User Intent & Requirements  │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │   Break Goal Into Multiple Sub Tasks   │
-                               └───────────────────┬────────────────────┘
-                                                   │
-         ┌─────────────────────────┼─────────────────────────┼─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼                         ▼                         ▼
- ┌───────────────┐         ┌───────────────┐         ┌───────────────┐         ┌───────────────┐         ┌───────────────┐
- │  Destination  │         │    Budget     │         │   Transport   │         │ Accommodation │         │   Itinerary   │
- │     Agent     │         │     Agent     │         │     Agent     │         │     Agent     │         │     Agent     │
- └───────┬───────┘         └───────┬───────┘         └───────┬───────┘         └───────┬───────┘         └───────┬───────┘
-         │                         │                         │                         │                         │
-         └─────────────────────────┴─────────────────────────┼─────────────────────────┴─────────────────────────┘
-                                                             │
-                                                             ▼
-                               ┌────────────────────────────────────────┐
-                               │           Coordinator Agent            │
-                               │    Combine Outputs From All Agents     │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │        Build Complete Trip Plan        │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │   Call External APIs (Tool Calling)    │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                         ┌─────────────────────────┼─────────────────────────┐
-                         ▼                         ▼                         ▼
-             ┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-             │      Weather API      │ │       Maps API        │ │     Calendar Tool     │
-             └───────────┬───────────┘ └───────────┬───────────┘ └───────────┬───────────┘
-                         │                         │                         │
-                         └─────────────────────────┼─────────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │     Generate Final AI Travel Plan      │
-                               │         Via Groq LLM API (Free)        │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │     Human-in-the-Loop Confirmation     │
-                               │   "Do you approve this travel plan?"   │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                         ┌─────────────────────────┴─────────────────────────┐
-                         ▼                                                   ▼
-             ┌───────────────────────┐                           ┌───────────────────────┐
-             │     User Approves     │                           │     User Rejects      │
-             └───────────┬───────────┘                           └───────────┬───────────┘
-                         │                                                   │
-                         ▼                                                   ▼
-             ┌───────────────────────┐                           ┌───────────────────────┐
-             │Save Trip into MongoDB │                           │  Modify Requirements  │
-             └───────────┬───────────┘                           └───────────┬───────────┘
-                         │                                                   │
-                         │                                                   ▼
-                         │                                       ┌───────────────────────┐
-                         │                                       │ Send Back to Planner  │
-                         │                                       └───────────┬───────────┘
-                         │                                                   │
-                         └─────────────────────────┬─────────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │      Schedule Reminder / Calendar      │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │           Update Trip Status           │
-                               │      Draft → Planned → Confirmed       │
-                               └───────────────────┬────────────────────┘
-                                                   │
-                                                   ▼
-                               ┌────────────────────────────────────────┐
-                               │         User Dashboard Updated         │
-                               └────────────────────────────────────────┘
-```
-</details>
 
 ---
 
 ## 2. Admin Workflow
 
-Details admin authorization, navigation to administrative sections, and accessible management operations.
+Details admin authorization, role validation middleware, navigation to administrative management sections, and metrics visualization dashboards.
 
-### 📊 Interactive Mermaid Diagram
 ```mermaid
 graph TD
     classDef default fill:#1e1e2e,stroke:#cdd6f4,stroke-width:2px,color:#cdd6f4;
@@ -216,51 +85,17 @@ graph TD
     classDef process fill:#89b4fa,stroke:#89b4fa,stroke-width:2px,color:#11111b;
     classDef admin fill:#f38ba8,stroke:#f38ba8,stroke-width:2px,color:#11111b;
 
-    Admin["Admin Login"]:::admin --> Auth["JWT + Admin Role Verification"]:::process
-    Auth --> Dashboard["Admin Dashboard"]:::process
+    Admin["Admin Web Dashboard"]:::admin --> Auth["JWT Decode: Verify User Admin Role<br/>(RBAC Role Verification Middleware)"]:::process
+    Auth --> DashboardREST["Admin Panel Router<br/>Rate-limited analytical endpoints"]:::process
     
-    Dashboard --> Users["View All Users"]:::process
-    Dashboard --> Trips["View All Trips"]:::process
-    Dashboard --> Analytics["View Analytics"]:::process
+    DashboardREST --> Users["View All Users<br/>(Includes Email/Status Pagination & Filters)"]:::process
+    DashboardREST --> Trips["View All Trips<br/>(Status queries: Draft/Planned/Confirmed)"]:::process
+    DashboardREST --> Analytics["System Metrics Dashboard<br/>(Chart.js Data Binding)"]:::process
     
-    Users --> FilterUsers["Search & Filter Users<br/>by Email, Role, or Status"]:::process
-    
-    Trips --> FilterTrips["Search & Filter Trips<br/>by Destination or Status<br/>(Draft / Planned / Confirmed)"]:::process
-    
-    Analytics --> Stats["Metrics Dashboard<br/>- Total Trips Created<br/>- Popular Destinations<br/>- Active Users count"]:::process
+    Users --> AuditLogs["Audit Access logs & User status edit"]:::process
+    Trips --> SearchTrips["Query database updates with indexing logs"]:::process
+    Analytics --> Stats["Display Active Users, Popular Locations,<br/>and Total Trip costs metrics"]:::process
 ```
-
-<details>
-<summary><b>👁️ View Plaintext ASCII Diagram</b></summary>
-
-```text
-                         ┌────────────────────────────────────────┐
-                         │              Admin Login               │
-                         └───────────────────┬────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │         JWT + Admin Role Check         │
-                         └───────────────────┬────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │            Admin Dashboard             │
-                         └───────────────────┬────────────────────┘
-                                             │
-                   ┌─────────────────────────┼─────────────────────────┐
-                   ▼                         ▼                         ▼
-       ┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-       │    View All Users     │ │    View All Trips     │ │       Analytics       │
-       └───────────┬───────────┘ └───────────┬───────────┘ └───────────┬───────────┘
-                   │                         │                         │
-                   ▼                         ▼                         ▼
-       ┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-       │ Search / Filter Users │ │ Filter Trips by Admin │ │    View Dashboard     │
-       │ by Name, Email, Role  │ │ Destination, Status   │ │ Analytics & Metrics   │
-       └───────────────────────┘ └───────────────────────┘ └───────────────────────┘
-```
-</details>
 
 ---
 
@@ -268,7 +103,6 @@ graph TD
 
 Highlights conditional routing inside the backend agent orchestration layers for determining which services/tools need execution to complete a user request.
 
-### 📊 Interactive Mermaid Diagram
 ```mermaid
 graph TD
     classDef default fill:#1e1e2e,stroke:#cdd6f4,stroke-width:2px,color:#cdd6f4;
@@ -277,8 +111,8 @@ graph TD
     classDef agent fill:#f9e2af,stroke:#f9e2af,stroke-width:2px,color:#11111b;
     classDef tool fill:#f5c2e7,stroke:#f5c2e7,stroke-width:2px,color:#11111b;
 
-    Goal(["User Goal"]):::startEnd --> Planner["Coordinator Agent"]:::agent
-    Planner --> Create["Create Execution Plan"]:::process
+    Goal([User Goal]):::startEnd --> Planner["Coordinator Agent"]:::agent
+    Planner --> Create["Initialize Agent Memory & Execution Sequence"]:::process
     
     %% Destination Step
     Create --> CheckDest{"Need Destination?"}:::process
@@ -307,174 +141,29 @@ graph TD
     ItineraryAgent --> CheckWeather
     
     %% Weather Step
-    CheckWeather -->|Yes| WeatherTool["Weather Tool"]:::tool
+    CheckWeather -->|Yes| WeatherTool["Weather Tool<br/>(API Call)"]:::tool
     CheckWeather -->|No| CheckCalendar{"Need Calendar?"}:::process
     WeatherTool --> CheckCalendar
     
     %% Calendar Step
-    CheckCalendar -->|Yes| CalendarTool["Calendar Tool"]:::tool
+    CheckCalendar -->|Yes| CalendarTool["Calendar Tool<br/>(API Call)"]:::tool
     CheckCalendar -->|No| Coordinator["Coordinator Agent"]:::agent
     CalendarTool --> Coordinator
     
     %% Wrap-up
-    Coordinator --> GenPlan["Generate Final Plan via Groq"]:::process
+    Coordinator --> GenPlan["Generate Final Plan via Groq API (Free)"]:::process
     GenPlan --> AppReq{"Human Approval?"}:::process
-    AppReq -->|Approved| Save["Save Trip"]:::process
+    AppReq -->|Approved| Save["Save Trip Draft to DB"]:::process
     AppReq -->|Rejected| Planner
     Save --> End(["End"]):::startEnd
 ```
-
-<details>
-<summary><b>👁️ View Plaintext ASCII Diagram</b></summary>
-
-```text
-                            ┌────────────────────────┐
-                            │    User Enters Goal    │
-                            └───────────┬────────────┘
-                                        │
-                                        ▼
-                            ┌────────────────────────┐
-                            │   Coordinator Agent    │
-                            └───────────┬────────────┘
-                                        │
-                                        ▼
-                            ┌────────────────────────┐
-                            │    Create Sub-Plans    │
-                            └───────────┬────────────┘
-                                        │
-                                        ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Dest?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │  Destination Agent   ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Budg?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │     Budget Agent     ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Tran?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │   Transport Agent    ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Acco?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │ Accommodation Agent  ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Itin?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │   Itinerary Agent    ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Weat?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │     Weather Tool     ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                                      /   \
-                                     /     \
-                                    < Need  >
-                                     \Cal?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           │
-                      ┌──────────────────────┐│
-                      │    Calendar Tool     ││
-                      └──────────┬───────────┘│
-                                 │            │
-                                 ▼            ▼
-                            ┌────────────────────────┐
-                            │   Coordinator Agent    │
-                            └───────────┬────────────┘
-                                        │
-                                        ▼
-                            ┌────────────────────────┐
-                            │  Generate Final Plan   │
-                            │      (Groq LLM)        │
-                            └───────────┬────────────┘
-                                        │
-                                        ▼
-                                      /   \
-                                     /     \
-                                    < Appr  >
-                                     \oved?/
-                                      \   /
-                                     /     \
-                                   Yes     No
-                                   /         \
-                                  ▼           ▼
-                      ┌───────────────┐ ┌───────────────┐
-                      │   Save Trip   │ │  Send Back to │
-                      │  to Database  │ │ Coordinator   │
-                      └───────────────┘ └───────────────┘
-```
-</details>
 
 ---
 
 ## 4. Project Development Workflow
 
-Illustrates the Git workflow, Continuous Integration pipeline via GitHub Actions, Docker builds, and deployment endpoints (Vercel, Render, and MongoDB Atlas).
+Illustrates the Git workflow, Continuous Integration pipeline via GitHub Actions, Docker builds, Terraform IaC provisioning, and deployment endpoints on AWS.
 
-### 📊 Interactive Mermaid Diagram
 ```mermaid
 graph TD
     classDef default fill:#1e1e2e,stroke:#cdd6f4,stroke-width:2px,color:#cdd6f4;
@@ -483,86 +172,51 @@ graph TD
     classDef cd fill:#f9e2af,stroke:#f9e2af,stroke-width:2px,color:#11111b;
     
     subgraph Local ["Local Development"]
-        Branch["Create Feature Branch"]:::local
-        Dev["Develop Feature"]:::local
-        Commit["Commit Changes"]:::local
-        Push["Push to GitHub"]:::local
+        Branch["Create Feature Branch<br/>(Git Flow strategy)"]:::local
+        Dev["Develop Features (Node.js/React/Express)"]:::local
+        Commit["Checkin Changes (Commit message conventions)"]:::local
+        Push["Push branch to GitHub Repository"]:::local
         
         Branch --> Dev --> Commit --> Push
     end
     
     subgraph CI ["GitHub Actions CI Pipeline"]
-        PR["Open Pull Request"]:::ci
+        PR["Open Pull Request to Main"]:::ci
         GA["GitHub Actions Triggered"]:::ci
-        Tests["Run Tests"]:::ci
-        Build["Build Project"]:::ci
-        Docker["Docker Build"]:::ci
-        Merge["Merge to Main"]:::ci
+        LintFormatter["Code Linting & Formatting Check"]:::ci
+        Tests["Run Unit Tests (Vitest / Jest)"]:::ci
+        SecurityScan["Security scan & npm audit"]:::ci
+        Build["Build Production Build (Vite & ESBuild)"]:::ci
+        Docker["Docker Image Build & Scan"]:::ci
+        Merge["PR Review & Merge to Main"]:::ci
         
-        PR --> GA --> Tests --> Build --> Docker --> Merge
+        PR --> GA --> LintFormatter --> Tests --> SecurityScan --> Build --> Docker --> Merge
     end
     
-    subgraph CD ["Deployment & Production"]
-        DepBack["Deploy Backend (Render)"]:::cd
-        DepFront["Deploy Frontend (Vercel)"]:::cd
-        DB["Connect MongoDB Atlas"]:::cd
-        Prod(["Production State"]):::cd
+    subgraph CD ["AWS CD Pipeline & IaC Provisioning"]
+        TriggerCD["CD Action Triggered"]:::cd
+        SecretsRetrieve["Retrieve secrets from AWS Secrets Manager"]:::cd
+        Terraform["Terraform Apply<br/>(Provision AWS VPC, EC2, S3, CloudFront)"]:::cd
         
-        DepBack --> Prod
-        DepFront --> Prod
-        DB --> Prod
+        DepBack["Deploy Backend (Docker container on AWS EC2)"]:::cd
+        DepFront["Deploy Frontend (AWS S3 + CloudFront CDN CDN invalidation)"]:::cd
+        DB["MongoDB Atlas Index verification"]:::cd
+        CloudWatch["Configure Prometheus/Grafana or CloudWatch Metrics"]:::cd
+        Prod(["Production Live State"]):::cd
+        
+        TriggerCD --> SecretsRetrieve --> Terraform
+        Terraform --> DepBack
+        Terraform --> DepFront
+        Terraform --> DB
+        
+        DepBack --> CloudWatch
+        DepFront --> CloudWatch
+        CloudWatch --> Prod
     end
 
     Push --> PR
-    Merge --> DepBack
-    Merge --> DepFront
-    Merge --> DB
+    Merge --> TriggerCD
 ```
-
-<details>
-<summary><b>👁️ View Plaintext ASCII Diagram</b></summary>
-
-```text
-                         ┌────────────────────────────────────────┐
-                         │          Local Development             │
-                         │  Feature Branch → Commit → Git Push    │
-                         └───────────────────┬────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │             Pull Request               │
-                         └───────────────────┬────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │          GitHub Actions (CI)           │
-                         │     Run Tests → Build Application      │
-                         └───────────────────┬────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │           Docker Image Build           │
-                         └───────────────────┬────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │             Merge to Main              │
-                         └───────────────────┬────────────────────┘
-                                             │
-                   ┌─────────────────────────┼─────────────────────────┐
-                   ▼                         ▼                         ▼
-       ┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-       │ Deploy Backend Render │ │Deploy Frontend Vercel │ │  Configure DB Atlas   │
-       └───────────┬───────────┘ └───────────┬───────────┘ └───────────┬───────────┘
-                   │                         │                         │
-                   └─────────────────────────┼─────────────────────────┘
-                                             │
-                                             ▼
-                         ┌────────────────────────────────────────┐
-                         │           Ready Production             │
-                         └────────────────────────────────────────┘
-```
-</details>
 
 ---
 
@@ -570,7 +224,6 @@ graph TD
 
 Maps out the structural tier boundaries: Frontend Web Client, Express.js Router context, AI Agent orchestration cluster, External Integrations, and persistent database layers.
 
-### 📊 Interactive Mermaid Diagram
 ```mermaid
 graph TD
     %% Styling
@@ -581,35 +234,47 @@ graph TD
     classDef ext fill:#f5c2e7,stroke:#f5c2e7,stroke-width:2px,color:#11111b;
 
     %% Frontend Tier
-    subgraph ClientTier ["Frontend Client"]
-        FE["React + Tailwind Frontend"]:::frontend
+    subgraph ClientTier ["Frontend Client (React TS - Week 3)"]
+        FE["React User Interface<br/>(Tailwind CSS)"]:::frontend
+        Val["Form Validation<br/>(React Hook Form + Zod)"]:::frontend
+        State["State Manager<br/>(Zustand / Context API)"]:::frontend
+        Queries["API Client<br/>(TanStack Query / Axios)"]:::frontend
+        ChartsFE["Visualizations<br/>(Chart.js Analytics)"]:::frontend
+        AuthFE["JWT Secure Storage<br/>(Cookies/LocalStorage)"]:::frontend
     end
 
-    %% Backend Express.js Server
-    subgraph ServerTier ["Backend Server (Express.js)"]
-        API["Express.js REST API"]:::backend
-        Auth["Authentication (JWT + RBAC)"]:::backend
-        Admin["Admin Module"]:::backend
-        AIPlanner["AI Planner Orchestrator (LangChain JS)"]:::backend
+    %% Backend Server Tier
+    subgraph ServerTier ["Backend Server (Node.js/Express MVC - Week 2)"]
+        API["Express.js Client Routes"]:::backend
         
-        API --> Auth
-        API --> Admin
-        API --> AIPlanner
+        %% Middleware sub-layer
+        subgraph Middlewares ["Express.js Middleware Chain"]
+            Throttle["API Rate Limiter"]:::backend
+            Log["Morgan Logger"]:::backend
+            JWT["JWT Validation & Authorization"]:::backend
+            RBAC["RBAC Role Validator"]:::backend
+            ErrorM["Global Error Handler"]:::backend
+        end
+        
+        AIPlanner["AI Agent Orchestrator (LangChain JS)"]:::backend
+        
+        API --> Throttle --> Log --> JWT --> RBAC --> AIPlanner
+        AIPlanner -.-> ErrorM
         
         %% Sub-agents cluster
-        subgraph agents ["AI Agent Cluster"]
+        subgraph agents ["AI Agent Cluster (Agentic AI - Week 5)"]
             DestAgent["Destination Agent"]:::backend
             BudAgent["Budget Agent"]:::backend
             TransAgent["Transport Agent"]:::backend
             AccomAgent["Accommodation Agent"]:::backend
             ItinAgent["Itinerary Agent"]:::backend
-            
-            AIPlanner --> DestAgent
-            AIPlanner --> BudAgent
-            AIPlanner --> TransAgent
-            AIPlanner --> AccomAgent
-            AIPlanner --> ItinAgent
         end
+        
+        AIPlanner --> DestAgent
+        AIPlanner --> BudAgent
+        AIPlanner --> TransAgent
+        AIPlanner --> AccomAgent
+        AIPlanner --> ItinAgent
         
         DestAgent --> Coord["Coordinator Agent"]:::backend
         BudAgent --> Coord
@@ -619,70 +284,30 @@ graph TD
     end
 
     %% Storage Tier
-    subgraph DBTier ["Database & Storage"]
-        DB[("MongoDB Database<br/>(Trip & User Storage)")]:::db
+    subgraph DBTier ["Database & Storage (Week 1 / 2)"]
+        DB[("MongoDB Atlas Database<br/>(Indexed Collections & Users)")]:::db
     end
 
     %% External Tier
-    subgraph ExtTier ["External Integrations"]
+    subgraph ExtTier ["External Services & Infrastructure (Week 4)"]
         LLM["Groq LLM API (Free)"]:::ext
-        Tools["Tools: Weather & Calendar APIs"]:::ext
+        Tools["Tools: Weather & Maps APIs"]:::ext
+        AWSSecrets["AWS Secrets Manager / KMS"]:::ext
+        CloudWatch["Amazon CloudWatch Logging"]:::ext
     end
 
-    %% System Flows
-    Auth -->|User Roles & Audits| DB
-    Admin -->|Analytical Data| DB
-    Coord -->|Inference Requests| LLM
-    LLM -->|External Calls| Tools
-    Coord -->|Save Finalized Travel Plan| DB
-    DB -->|Return Operations Data| API
-    API -->|Deliver JSON Response| FE
-```
+    %% Connect UI controls
+    FE --> Val --> Queries
+    Queries --> AuthFE
+    ChartsFE --> FE
 
-<details>
-<summary><b>👁️ View Plaintext ASCII Diagram</b></summary>
-
-```text
-                ┌──────────────────────────────────────────┐
-                │          React + Tailwind Frontend       │
-                └────────────────────┬─────────────────────┘
-                                     │ (JSON REST Requests)
-                                     ▼
-                ┌──────────────────────────────────────────┐
-                │       Express.js backend Service         │
-                └────────────┬──────────────┬──────────────┘
-                             │              │
-      ┌──────────────────────┘              └──────────────────────┐
-      ▼                                                            ▼
-┌───────────┐                 ┌─────────────┐                ┌───────────┐
-│   Auth    │                 │ Coordinator │                │   Admin   │
-│(JWT+RBAC) │                 │(LangChainJS)│                │  Module   │
-└─────┬─────┘                 └──────┬──────┘                └─────┬─────┘
-      │                              │                             │
-      │        ┌────────┬────────┬───┴────┬────────┐               │
-      │        ▼        ▼        ▼        ▼        ▼               │
-      │     ┌────┐   ┌────┐   ┌────┐   ┌────┐   ┌────┐             │
-      │     │Dest │   │Budg│   │Tran│   │Acco│   │Itin│             │
-      │     │Agent│   │Agent│   │Agent│   │Agent│   │Agent│             │
-      │     └─┬──┘   └─┬──┘   └─┬──┘   └─┬──┘   └─┬──┘             │
-      │       │        │        │        │        │                │
-      │       └────────┴────────┼────────┴────────┘                │
-      │                         ▼                                  │
-      │                  ┌─────────────┐                           │
-      │                  │ Coordinator │                           │
-      │                  │    Agent    │                           │
-      │                  └──────┬──────┘                           │
-      │                         │                                  │
-      ▼                         ▼                                  ▼
-┌───────────┐                 ┌─────────────┐                ┌───────────┐
-│  MongoDB  │◄────────────────┤  Groq LLM   │                │ Database  │
-│ Database  │    Save Trip    │ API (Free)  │                │   Check   │
-└───────────┘                 └──────┬──────┘                └───────────┘
-                                     │ (Tool Call)
-                                     ▼
-                              ┌─────────────┐
-                              │ Weather /   │
-                              │  Calendar   │
-                              └─────────────┘
+    %% Core Data flow
+    Queries -->|JSON REST Requests| API
+    Coord -->|Inference Query| LLM
+    LLM -->|Perform Tool Calling| Tools
+    Coord -->|Store Completed Trip Profile| DB
+    AIPlanner -->|Read Secrets| AWSSecrets
+    API -.->|Metrics & Diagnostics| CloudWatch
+    DB -->|Return Results| API
+    API -->|Send JSON Payload Response| Queries
 ```
-</details>
