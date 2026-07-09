@@ -352,3 +352,41 @@ graph TD
     DB -->|Return Results| API
     API -->|Send JSON Payload Response| Queries
 ```
+
+---
+
+## 6. Tech Stack
+
+| Layer | Technology | Purpose |
+|:------|:-----------|:--------|
+| **Frontend** | React (TypeScript) | Single Page Application UI |
+| | Vite | Dev server & production bundler |
+| | Tailwind CSS | Utility-first styling framework |
+| | React Hook Form + Zod | Form state management & schema validation |
+| | TanStack Query | Server-state caching, pagination & data fetching |
+| | Zustand / Context API | Client-side state management |
+| | Chart.js | Admin analytics data visualizations |
+| | Axios | HTTP client for REST API calls |
+| **Backend** | Node.js + Express.js | REST API server (MVC architecture) |
+| | Mongoose | MongoDB ODM with schema validation |
+| | JSON Web Token (JWT) | Authentication & token-based sessions |
+| | bcrypt | Password hashing |
+| | express-rate-limit | API request throttling |
+| | Helmet | HTTP header security hardening |
+| | CORS | Cross-origin resource sharing policy |
+| | Morgan / Winston | Request logging & diagnostics |
+| **AI / Agents** | Groq LLM API (Free) | LLM inference (Llama 3 model) |
+| | LangChain JS | Agent orchestration framework |
+| | Model Context Protocol (MCP) | Standardized tool-calling interface |
+| **Database & Caching** | MongoDB Atlas (Free M0) | Primary database (indexed collections) |
+| | Redis | Backend query caching (weather, transit) |
+| **DevOps & Infra** | GitHub Actions | CI/CD pipeline automation |
+| | Docker | Container packaging & deployment |
+| | Terraform | Infrastructure as Code (IaC) provisioning |
+| | AWS EC2 (Free Tier) | Backend server hosting |
+| | AWS S3 + CloudFront (Free Tier) | Frontend static hosting & CDN |
+| | AWS Secrets Manager | Secure credential storage |
+| | Amazon CloudWatch | Monitoring & logging |
+| **External APIs** | OpenMeteo API (Free) | Weather forecast data |
+| | Google Maps API (Free credits) | Geocoding & location services |
+| | Google Calendar API (Free) | Trip reminder scheduling |
