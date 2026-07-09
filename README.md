@@ -119,14 +119,14 @@ graph TD
     classDef process fill:#89b4fa,stroke:#89b4fa,stroke-width:2px,color:#11111b;
     classDef admin fill:#f38ba8,stroke:#f38ba8,stroke-width:2px,color:#11111b;
 
-    Admin["Admin Web Dashboard"]:::admin --> Auth["JWT Decode: Verify User Admin Role<br/>(RBAC Role Verification Middleware)"]:::process
-    Auth --> DashboardREST["Admin Panel Router<br/>(Rate-limited REST endpoints)"]:::process
+    Admin["Admin Web Dashboard"]:::admin --> Auth["Admin Auth Middleware"]:::process
+    Auth --> DashboardREST["Admin Router"]:::process
     
     subgraph Metrics ["Admin Analytics Panel"]
-        PopularDest["Query Popular Destinations & Booked Cities"]:::process
-        Stats["Average Budget & Trip Duration Statistics"]:::process
-        CancelRate["Monitor Trip Cancellation %"]:::process
-        Telemetry["Agent Info, API call stats, Redis Cache Hit %, & Failed Requests"]:::process
+        PopularDest["Query Destinations"]:::process
+        Stats["Query Cost Stats"]:::process
+        CancelRate["Query Cancellations"]:::process
+        Telemetry["Query System Health"]:::process
     end
     
     DashboardREST --> PopularDest
@@ -134,7 +134,7 @@ graph TD
     DashboardREST --> CancelRate
     DashboardREST --> Telemetry
     
-    PopularDest --> Audit["Write Audited Reports (Read-Only DB Connection)"]:::process
+    PopularDest --> Audit["Generate Audit Logs"]:::process
     Stats --> Audit
     CancelRate --> Audit
     Telemetry --> Audit
@@ -157,68 +157,68 @@ graph TD
     classDef cache fill:#fab387,stroke:#fab387,stroke-width:2px,color:#11111b;
 
     Goal([User Goal]):::startEnd --> Controller["Trip Controller"]:::process
-    Controller --> PlannerService["Planner Service<br/>(Business Logic)"]:::process
+    Controller --> PlannerService["Planner Service"]:::process
     
     %% Turn State Memory (Dual-Layer)
-    PlannerService --> FetchMem["Load Memories:<br/>1. Short-Term Memory (Session turn history)<br/>2. Long-Term Memory (User profiles & preferences)"]:::process
+    PlannerService --> FetchMem["Load Memories"]:::process
     
-    FetchMem --> Planner["Trip Planner Agent<br/>(Orchestrator Brain)"]:::agent
-    Planner --> Parse["Decompose Goal & Parse Intent"]:::process
+    FetchMem --> Planner["Planner Agent"]:::agent
+    Planner --> Parse["Decompose Goal"]:::process
     
     %% Inference slot checks
-    Parse --> CheckData["Missing Information Agent<br/>(Detail Slot validation check)"]:::agent
-    CheckData --> CheckDest{"Missing critical info?"}:::process
+    Parse --> CheckData["Missing Info Agent"]:::agent
+    CheckData --> CheckDest{"Missing info?"}:::process
     
-    CheckDest -->|Yes| InferSlots{"Can infer missing fields?<br/>(e.g., 'weekend' = Sat/Sun, 'family' = 2+ travelers)"}:::process
-    InferSlots -->|Yes| UpdateSlots["Populate state with inferred parameters"]:::process
-    InferSlots -->|No| Clarify["Ask user only for missing fields<br/>(Maintain current state context)"]:::process
+    CheckDest -->|Yes| InferSlots["Infer Missing Fields"]:::process
+    InferSlots -->|Yes| UpdateSlots["Update Parameters"]:::process
+    InferSlots -->|No| Clarify["Prompt Missing Fields"]:::process
     Clarify --> Goal
     
     %% Destination recommendation logic
-    UpdateSlots --> DestCheck{"Is destination missing?"}:::process
+    UpdateSlots --> DestCheck{"Is dest missing?"}:::process
     CheckDest -->|No| DestCheck
     
-    DestCheck -->|Yes| DestAgent["Destination Rec Agent<br/>(Recommend locations based on season & budget constraints)"]:::agent
-    DestCheck -->|No| Coord["Coordinator Agent<br/>(Initializes Hybrid Orchestration)"]:::agent
+    DestCheck -->|Yes| DestAgent["Destination Rec Agent"]:::agent
+    DestCheck -->|No| Coord["Coordinator Agent"]:::agent
     DestAgent --> Coord
     
     %% Hybrid Parallel / Sequential Stage
     subgraph ParallelPhase ["Parallel Gathering Phase"]
-        WeatherAgent["Weather Agent<br/>(Check forecasts for rain warnings)"]:::agent
-        TransAgent["Transport Agent<br/>(Bus/Train transit lookups)"]:::agent
-        AccomAgent["Accommodation Agent<br/>(Search stays)"]:::agent
-        ActAgent["Activity Agent<br/>(Sights, restaurants, & events)"]:::agent
+        WeatherAgent["Weather Agent"]:::agent
+        TransAgent["Transport Agent"]:::agent
+        AccomAgent["Accommodation Agent"]:::agent
+        ActAgent["Activity Agent"]:::agent
     end
     
     Coord --> ParallelPhase
     
-    ParallelPhase --> RedisCheck{"Check caches in Redis"}:::cache
+    ParallelPhase --> RedisCheck{"Check Caches"}:::cache
     
     %% Replanning flow integration hook
-    RedisCheck -->|Miss| Tools["Invoke Standardized MCP Protocols"]:::tool
+    RedisCheck -->|Miss| Tools["Invoke MCP Protocols"]:::tool
     
     subgraph LCTools ["MCP Tool Connections"]
-        WeatherMCP["Weather MCP (Rain Alert Alerts)"]:::tool
-        MapsMCP["Maps MCP (Distance / Route)"]:::tool
-        SchedulesMCP["Transit Schedules MCP (Mocked)"]:::tool
+        WeatherMCP["Weather MCP"]:::tool
+        MapsMCP["Maps MCP"]:::tool
+        SchedulesMCP["Transit MCP"]:::tool
     end
     
     Tools --> WeatherMCP
     Tools --> MapsMCP
     Tools --> SchedulesMCP
     
-    RedisCheck -->|Hit| JoinGather["Collect outputs & ground data"]:::process
+    RedisCheck -->|Hit| JoinGather["Join Gathered Data"]:::process
     WeatherMCP --> WriteC["Write to Redis"]:::cache
     MapsMCP --> WriteC
     SchedulesMCP --> WriteC
     WriteC --> JoinGather
     
     subgraph SequentialPhase ["Sequential Planning Phase"]
-        BudgetAgent["Budget Agent<br/>(Breakdown: Transport, Stay, Food, local cab, 10-15% Emergency)"]:::agent
-        CheckBudget{"Is specified budget<br/>impossible?"}:::process
-        AltBudget["Suggest cost-saving alternatives<br/>(Hostels, sleeper train, public transport)"]:::error
+        BudgetAgent["Budget Agent"]:::agent
+        CheckBudget{"Is budget impossible?"}:::process
+        AltBudget["Propose Alternatives"]:::error
         
-        ItinAgent["Itinerary Agent<br/>(Draft morning, afternoon, evening, & night scheduling)"]:::agent
+        ItinAgent["Itinerary Agent"]:::agent
     end
     
     JoinGather --> BudgetAgent
@@ -228,24 +228,24 @@ graph TD
     CheckBudget -->|No| ItinAgent
     
     %% Confidence Checks
-    ItinAgent --> ConfidenceCheck{"Do all coordinates & dates validate?"}:::process
-    ConfidenceCheck -->|No| ErrorHandle["Error Handler<br/>(API Failure Retries / Fallbacks / Graceful Notice)"]:::error
+    ItinAgent --> ConfidenceCheck{"Do parameters validate?"}:::process
+    ConfidenceCheck -->|No| ErrorHandle["Error Fallback"]:::error
     ErrorHandle --> EndGrace([Graceful Terminate]):::startEnd
     
-    ConfidenceCheck -->|Yes| Comp["Coordinator Agent<br/>(Grounding check: do not hallucinate)"]:::agent
-    Comp --> LLMFormat["Format final unified outline details using Groq LLM"]:::process
+    ConfidenceCheck -->|Yes| Comp["Coordinator Agent"]:::agent
+    Comp --> LLMFormat["Format via Groq LLM"]:::process
     
-    LLMFormat --> SaveMem["Update Short-Term Session & Long-Term Memory Stats"]:::process
+    LLMFormat --> SaveMem["Save Memory States"]:::process
     
-    SaveMem --> TravelerReview["Traveler reviews details: budget breakdown, weather & plans"]:::process
+    SaveMem --> TravelerReview["User Review Plan"]:::process
     
     TravelerReview --> Approve{"Is plan approved?"}:::process
-    Approve -->|No| ReplanningAgent["Replanning Agent<br/>(Update affected segments only)"]:::agent
+    Approve -->|No| ReplanningAgent["Replanning Agent"]:::agent
     ReplanningAgent --> Goal
     
     %% Mocked Booking Layer details
-    Approve -->|Yes| BookingAgent["Booking Agent (Mocked)<br/>(Generate mocked PNRs, stay checks & checkouts)"]:::agent
-    BookingAgent --> ConfirmDB["Save Trip to MongoDB Atlas<br/>(Status: Booked)"]:::process
+    Approve -->|Yes| BookingAgent["Mocked Booking Agent"]:::agent
+    BookingAgent --> ConfirmDB["Save Booked Trip"]:::process
     
     ConfirmDB --> EndApp([End Workflow]):::startEnd
 ```
@@ -264,36 +264,36 @@ graph TD
     classDef cd fill:#f9e2af,stroke:#f9e2af,stroke-width:2px,color:#11111b;
     
     subgraph Local ["Local Development"]
-        Branch["Create Feature Branch<br/>(Git Flow strategy)"]:::local
-        Dev["Develop Features (Node.js/React/Express)"]:::local
-        Commit["Checkin Changes (Commit message conventions)"]:::local
-        Push["Push branch to GitHub Repository"]:::local
+        Branch["Create branch"]:::local
+        Dev["Write Features Code"]:::local
+        Commit["Commit Changes"]:::local
+        Push["Push to GitHub"]:::local
         
         Branch --> Dev --> Commit --> Push
     end
     
-    subgraph CI ["GitHub Actions CI Pipeline"]
-        PR["Open Pull Request to Main"]:::ci
-        GA["GitHub Actions Triggered"]:::ci
-        LintFormatter["Code Linting & Formatting Check"]:::ci
-        Tests["Run Unit Tests (Vitest / Jest)"]:::ci
-        SecurityScan["Security scan & npm audit"]:::ci
-        Build["Build Production Build (Vite & ESBuild)"]:::ci
-        Docker["Docker Image Build & Scan"]:::ci
-        Merge["PR Review & Merge to Main"]:::ci
+    subgraph CI ["Actions CI Pipeline"]
+        PR["Open Pull Request"]:::ci
+        GA["Trigger CI Pipeline"]:::ci
+        LintFormatter["Lint & Format Unit"]:::ci
+        Tests["Run Test Suites"]:::ci
+        SecurityScan["Npm Audit Scan"]:::ci
+        Build["Compile Production"]:::ci
+        Docker["Docker Image builds"]:::ci
+        Merge["Merge to Main"]:::ci
         
         PR --> GA --> LintFormatter --> Tests --> SecurityScan --> Build --> Docker --> Merge
     end
     
-    subgraph CD ["AWS CD Pipeline & IaC Provisioning"]
+    subgraph CD ["AWS CD Pipeline"]
         TriggerCD["CD Action Triggered"]:::cd
-        SecretsRetrieve["Retrieve secrets from AWS Systems Manager Parameter Store"]:::cd
-        Terraform["Terraform Apply<br/>(Provision AWS VPC, EC2, S3, CloudFront)"]:::cd
+        SecretsRetrieve["AWS Parameter Store Retrieve"]:::cd
+        Terraform["Terraform Provisioning"]:::cd
         
-        DepBack["Deploy Backend (Docker container on AWS EC2)"]:::cd
-        DepFront["Deploy Frontend (AWS S3 + CloudFront CDN CDN invalidation)"]:::cd
-        DB["MongoDB Atlas Index verification"]:::cd
-        CloudWatch["Configure Prometheus/Grafana or CloudWatch Metrics"]:::cd
+        DepBack["EC2 Docker Deploy"]:::cd
+        DepFront["S3 CloudFront static deploy"]:::cd
+        DB["MongoDB Indexing check"]:::cd
+        CloudWatch["Configure Telemetry metrics"]:::cd
         Prod(["Production Live State"]):::cd
         
         TriggerCD --> SecretsRetrieve --> Terraform
@@ -327,50 +327,50 @@ graph TD
     classDef cache fill:#fab387,stroke:#fab387,stroke-width:2px,color:#11111b;
 
     %% Frontend Tier
-    subgraph ClientTier ["Frontend Client (React TS - Week 3)"]
-        FE["React User Interface<br/>(Tailwind CSS)"]:::frontend
-        Val["Form Input validation<br/>(React Hook Form + Zod for authentication)"]:::frontend
-        State["State Manager<br/>(Zustand / Context API)"]:::frontend
-        Queries["API Client<br/>(TanStack Query / Axios)"]:::frontend
-        ChartsFE["Visualizations<br/>(Chart.js Analytics)"]:::frontend
-        AuthFE["JWT Secure Storage<br/>(Cookies/LocalStorage)"]:::frontend
+    subgraph ClientTier ["Frontend Client (React TS)"]
+        FE["User Interface"]:::frontend
+        Val["Zod validation schema"]:::frontend
+        State["State Manager"]:::frontend
+        Queries["TanStack Client Queries"]:::frontend
+        ChartsFE["ChartJS Charts"]:::frontend
+        AuthFE["JWT Client Storage"]:::frontend
     end
 
     %% Backend Server Tier
-    subgraph ServerTier ["Backend Server (Node.js/Express MVC + Service - Week 2)"]
-        API["Express.js Server Route Handler"]:::backend
+    subgraph ServerTier ["Backend Server (Node MVC)"]
+        API["API Route Handler"]:::backend
         
-        subgraph Middlewares ["Express.js Middleware Chain (Hardened Security)"]
-            Throttle["API Rate Limiter"]:::backend
-            CORSConn["CORS Safety Policy"]:::backend
-            HelmetShield["Helmet CSS/Header Protection"]:::backend
+        subgraph Middlewares ["Hardened Middlewares"]
+            Throttle["Rate Limiter"]:::backend
+            CORSConn["CORS Policy"]:::backend
+            HelmetShield["Helmet Headers"]:::backend
             Log["Morgan Logger"]:::backend
-            JWT["JWT Validation & Authorization"]:::backend
-            InputVal["JSON Schema Input Validator"]:::backend
+            JWT["JWT Validation"]:::backend
+            InputVal["Input Validator"]:::backend
             RBAC["RBAC Role Validator"]:::backend
             ErrorM["Global Error Handler"]:::backend
         end
         
         API --> Throttle --> CORSConn --> HelmetShield --> Log --> JWT --> InputVal --> RBAC
         
-        PlannerService["Planner Service<br/>(Core Business Logic Handler)"]:::backend
+        PlannerService["Planner Service Layer"]:::backend
         RBAC --> PlannerService
         
-        AIPlanner["AI Agent Orchestrator (LangChain / MCP Client)"]:::backend
+        AIPlanner["AI Agent Orchestrator"]:::backend
         PlannerService --> AIPlanner
         
         %% Sub-agents cluster
-        subgraph agents ["AI Agent Cluster (Agentic AI - Week 5)"]
-            TripPlannerAgent["Trip Planner Agent (Brain)"]:::backend
+        subgraph agents ["AI Agent Cluster"]
+            TripPlannerAgent["Planner Agent"]:::backend
             MissingInfoAgent["Missing Info Agent"]:::backend
-            DestRecAgent["Destination Rec Agent"]:::backend
+            DestRecAgent["Dest Rec Agent"]:::backend
             WeatherAgent["Weather Agent"]:::backend
-            TransAgent["Transport Agent (Bus/Train)"]:::backend
-            AccomAgent["Accommodation Agent"]:::backend
+            TransAgent["Trans Agent"]:::backend
+            AccomAgent["Accom Agent"]:::backend
             ActAgent["Activity Agent"]:::backend
             BudAgent["Budget Agent"]:::backend
             ItinAgent["Itinerary Agent"]:::backend
-            BookingAgent["Booking Agent (Mocked Engine)"]:::backend
+            BookingAgent["Mocked Booking Agent"]:::backend
             ReplanningAgent["Replanning Agent"]:::backend
         end
         
@@ -394,35 +394,35 @@ graph TD
     end
 
     %% Storage Tier
-    subgraph DBTier ["Database & Caching (Week 1 / 2)"]
-        DB[("MongoDB Atlas Database<br/>(Indexed Collections & Users)")]:::db
+    subgraph DBTier ["Database & Caching"]
+        DB[(MongoDB Atlas Database)]:::db
         
-        subgraph CacheStore ["In-Memory Caching (Redis)"]
-            RedisCache[("Redis Server<br/>(Weather, travel fares, & locations)")]:::cache
+        subgraph CacheStore ["In-Memory Caching"]
+            RedisCache[(Redis Cache)]:::cache
         end
         
-        subgraph MemStores ["Dual-Layer Memory Store"]
-            ST_Memory[("Short-Term Memory<br/>(Session turn history in MongoDB)")]:::db
-            LT_Memory[("Long-Term Memory<br/>(User preferences, past trips, hotel/transit presets)")]:::db
+        subgraph MemStores ["Memory Store"]
+            ST_Memory[(Short-Term Memory)]:::db
+            LT_Memory[(Long-Term Memory)]:::db
         end
     end
 
     %% External Tier
-    subgraph ExtTier ["External Services & Infrastructure (Week 4)"]
-        LLM["Groq LLM API (Free)"]:::ext
+    subgraph ExtTier ["External / DevOps"]
+        LLM["Groq LLM API"]:::ext
         
-        subgraph LCTools ["Standardized MCP Tool Connections"]
-            WeatherTool["Weather MCP Server (OpenMeteo API)"]:::ext
-            MapsTool["Maps MCP Server (Google Maps API)"]:::ext
-            MockBus["Mocked Bus MCP Server"]:::ext
-            MockTrain["Mocked Train MCP Server"]:::ext
-            MockHotel["Mocked Hotel MCP Server"]:::ext
-            MockPayment["Mocked Payment MCP Server"]:::ext
-            CalendarTool["Calendar MCP Server (Google Calendar API)"]:::ext
+        subgraph LCTools ["MCP Tool Connections"]
+            WeatherTool["Weather MCP"]:::ext
+            MapsTool["Maps MCP"]:::ext
+            MockBus["Mock Bus MCP"]:::ext
+            MockTrain["Mock Train MCP"]:::ext
+            MockHotel["Mock Hotel MCP"]:::ext
+            MockPayment["Mock Payment MCP"]:::ext
+            CalendarTool["Calendar MCP"]:::ext
         end
         
-        AWSSSM["AWS SSM Parameter Store (Always Free)"]:::ext
-        CloudWatch["Amazon CloudWatch Logging"]:::ext
+        AWSSSM["AWS SSM Store"]:::ext
+        CloudWatch["Cloudwatch Logger"]:::ext
     end
 
     %% Connect UI controls
