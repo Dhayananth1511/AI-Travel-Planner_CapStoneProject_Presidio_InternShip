@@ -1,81 +1,167 @@
 # Travel Planner AI Agent — Capstone Project Documentation
 
-
-
-
-## Agent Design — Leaner Architecture
-
-> [!IMPORTANT]
-> This project uses **5 true AI agents** and **4 lightweight data services**. Not everything needs to be an agent — components that primarily fetch external data are implemented as services, keeping the AI layer lean and maintainable.
-
-### AI Agents (LLM-Powered, Decision-Making)
-
-| Agent | Responsibility |
-|:------|:---------------|
-| **Planner Agent** | Decomposes the user's natural-language goal, infers missing fields, and routes to the Coordinator |
-| **Budget Agent** | Deterministically calculates cost breakdowns, flags impossible budgets, and proposes alternatives |
-| **Itinerary Agent** | Generates structured day-by-day schedules from aggregated data |
-| **Replanning Agent** | Re-runs planning from a modified goal when the user rejects a plan |
-| **Coordinator Agent** | Orchestrates the full pipeline — delegates parallel tasks, aggregates results, triggers sequential agents, and formats the final itinerary |
-
-### Data Services (No LLM — Fetch Only)
-
-| Service | Responsibility |
-|:--------|:---------------|
-| **Weather Service** | Calls OpenMeteo API via Weather MCP; returns forecast data |
-| **Transport Service** | Queries mock bus/train schedules via Transit MCP |
-| **Hotel Service** | Queries mock hotel availability via Hotel MCP |
-| **Activity Service** | Returns local attractions, dining, and events data |
-
-> [!NOTE]
-> Destination Recommendation logic is handled inside the **Planner Agent** using weather and budget context — it does not need its own agent at this scale.
+> A multi-agent travel planning system built as a Presidio internship capstone. Each AI agent has a single, clearly defined responsibility. The Coordinator Agent calls all other agents in sequence and combines their outputs into a final travel plan.
 
 ---
 
-## Coordinator Agent — Explicit Responsibilities
+## MAP: Applied Curriculum Topics
 
-The Coordinator Agent is the central orchestrator of the AI pipeline. Its exact responsibilities are:
+| Week | Focus Area | Applied Concepts |
+|:-----|:-----------|:-----------------|
+| **Week 1** | Foundations & DSA | MongoDB index design (`userId`, `tripId`, `status`), schema validations, Git branching strategy |
+| **Week 2** | Backend | Express.js MVC with Planner Service layer, global rate-limiting, Morgan logging, JWT + RBAC auth |
+| **Week 3** | Frontend | React SPA (Vite), Zustand state, React Hook Form + Zod validation, TanStack Query caching, Chart.js dashboards |
+| **Week 4** | DevOps | GitHub Actions CI/CD, Docker containerisation, Terraform IaC on AWS (EC2 / S3 / CloudFront / SSM) |
+| **Week 5** | Agentic AI | 3-agent LangChain pipeline orchestrated by Coordinator Agent, 4 fetch-only data services, MCP tool calling, Redis caching, human-in-the-loop validation |
 
-1. **Receive** — Accepts the structured goal object from the Planner Agent.
-2. **Delegate (Parallel)** — Dispatches all four Data Services simultaneously for weather, transport, hotel, and activity data.
-3. **Cache Check** — Checks Redis before each service call; skips the external MCP call on a cache hit.
-4. **Aggregate** — Waits for all parallel results and merges them into a unified context object.
-5. **Trigger (Sequential)** — Passes the merged context to Budget Agent → Itinerary Agent in strict order.
-6. **Format** — Sends the completed itinerary to the Groq LLM for final markdown formatting.
-7. **Return** — Delivers the formatted travel plan to the user for human-in-the-loop review.
+---
+
+## Agent Design — Single Responsibility Principle
+
+> [!IMPORTANT]
+> Every agent in this system has **exactly one job**. The **Coordinator Agent** is the only agent that knows about the others — it calls them in sequence and merges their outputs into the final plan. No other agent talks to another agent directly.
+
+---
+
+### Agent 1 — Planner Agent
+
+**Single Responsibility:** Parse and validate the user's natural-language travel request.
+
+| What it receives | What it returns |
+|:----------------|:----------------|
+| Raw user message + conversation history | A structured goal object `{ destination, dates, budget, travelers, preferences }` |
+
+**It does only this:**
+- Reads the user's message and conversation memory.
+- Identifies whether required fields (destination, dates, budget, traveler count) are present.
+- If fields are missing → prompts the user for clarification and waits.
+- If all fields are present → returns a clean, validated `GoalObject` to the Coordinator.
+
+> It does **not** fetch any data. It does **not** build a schedule. It only validates and structures input.
+
+---
+
+### Agent 2 — Budget Agent
+
+**Single Responsibility:** Estimate costs and produce a budget breakdown.
+
+| What it receives | What it returns |
+|:----------------|:----------------|
+| `GoalObject` + raw data (transport costs, hotel rates, activity prices) from Data Services | A structured `BudgetReport` with per-category estimates and a 10% emergency buffer |
+
+**It does only this:**
+- Takes the aggregated data from the Coordinator.
+- Calculates transport, hotel, food, activity, and local transport costs.
+- Adds a 10% emergency buffer.
+- If total cost exceeds the user's budget → returns a fallback alternative (e.g., fewer days, budget hotels).
+- Returns a `BudgetReport` object to the Coordinator.
+
+> It does **not** build any schedule. It does **not** call any external API. It only calculates money.
+
+---
+
+### Agent 3 — Itinerary Agent
+
+**Single Responsibility:** Generate a day-by-day travel schedule.
+
+| What it receives | What it returns |
+|:----------------|:----------------|
+| `GoalObject` + `BudgetReport` + raw service data (weather, transport slots, hotel, activities) | A `DailyItinerary[]` — one structured object per day, with timeslots, venues, and costs |
+
+**It does only this:**
+- Takes the approved budget caps from the Budget Agent.
+- Slots activities, meals, transport legs, and rest time into a time-ordered daily schedule.
+- Respects weather data (e.g., swap outdoor activities on rainy days).
+- Returns a complete `DailyItinerary` array to the Coordinator.
+
+> It does **not** calculate costs. It does **not** fetch data. It only arranges time.
+
+---
+
+### Coordinator Agent — Orchestrator
+
+**Single Responsibility:** Call all agents in the correct sequence, combine their outputs, and return the final itinerary to the user.
+
+**Sequential call chain:**
+
+```
+1. Receive GoalObject from Planner Agent
+        ↓
+2. Dispatch Data Services in parallel
+   ├── Weather Service   → WeatherData
+   ├── Transport Service → TransportData
+   ├── Hotel Service     → HotelData
+   └── Activity Service  → ActivityData
+        ↓
+3. Merge all service outputs → AggregatedContext
+        ↓
+4. Call Budget Agent (AggregatedContext) → BudgetReport
+        ↓
+5. Call Itinerary Agent (AggregatedContext + BudgetReport) → DailyItinerary[]
+        ↓
+6. Format final plan via Groq LLM → Markdown Travel Plan
+        ↓
+7. Return Markdown Travel Plan to user for HITL review
+```
+
+> It does **not** do any planning, budgeting, or scheduling itself. It only calls other agents in order and passes outputs between them.
+
+---
+
+### Replanning Agent
+
+**Single Responsibility:** Re-run the pipeline when the user rejects a plan.
+
+| What it receives | What it returns |
+|:----------------|:----------------|
+| Rejection feedback + original `GoalObject` | A modified `GoalObject` with updated constraints |
+
+**It does only this:**
+- Reads the user's rejection reason (e.g., "too expensive", "change hotel", "add one more day").
+- Applies the requested modification to the original `GoalObject`.
+- Passes the updated goal back to the Coordinator to re-run the full sequence.
+
+> It does **not** generate a new plan itself. It only modifies the input and re-triggers the Coordinator.
+
+---
+
+### Data Services — Fetch Only (No LLM)
+
+> [!NOTE]
+> These are not agents. They are plain async functions that fetch and return data. They have no reasoning or decision-making capability.
+
+| Service | Fetches from | Returns |
+|:--------|:-------------|:--------|
+| **Weather Service** | OpenMeteo API via Weather MCP | 5-day forecast for destination |
+| **Transport Service** | Mock bus/train schedules via Transit MCP | Available routes, departure times, costs |
+| **Hotel Service** | Mock hotel availability via Hotel MCP | Available hotels with ratings and nightly rates |
+| **Activity Service** | Static data + Google Maps MCP | List of local attractions, restaurants, and events |
 
 ---
 
 ## Booking — Honest Workflow
 
 > [!WARNING]
-> The "Booking Agent" in this project is **explicitly a mock**. It does **not** perform any real reservations, charge any payment method, or integrate with a live booking platform.
-
-### What it actually does
+> There is **no Booking Agent** in the execution pipeline. After the user approves the plan, the system generates **external booking links** and saves the trip to MongoDB. No real reservations are made, no payments are processed.
 
 ```
-Planner Agent
-     ↓
-Generate Travel Plan
-     ↓
-Human-in-the-Loop Review (Approve / Reject)
-     ↓ (Approve)
-Export Booking Links (Deep-links to real platforms)
-     ↓
-Save Trip to MongoDB (Status: Confirmed)
+Coordinator Agent returns Itinerary
+          ↓
+User Reviews Plan (Human-in-the-Loop)
+          ↓ Approve
+Generate External Booking Links
+(IRCTC / MakeMyTrip / Booking.com deep-links)
+          ↓
+Save Trip to MongoDB { status: "Confirmed" }
+          ↓
+Dispatch Notifications (Email / Calendar Sync)
 ```
-
-The mock booking layer:
-- Generates **external deep-links** to Booking.com, MakeMyTrip, IRCTC, etc.
-- Saves the confirmed trip record to MongoDB with status `"Confirmed"`.
-- Does **not** create reservations or process payments.
-- Simulates a confirmation receipt for demonstration purposes only.
 
 ---
 
 ## 1. User Flow
 
-Traces the traveler's journey from authentication through itinerary approval and trip save.
+Traces the traveler's path from login through agent execution to trip save.
 
 ```mermaid
 graph TD
@@ -85,46 +171,42 @@ graph TD
     classDef cache fill:#fab387,stroke:#fab387,stroke-width:2px,color:#11111b;
     classDef mock fill:#f38ba8,stroke:#f38ba8,stroke-width:2px,color:#11111b;
 
-    Traveler([Traveler]):::startEnd --> Auth["Auth (Zod + Hook Form)"]:::process
-    Auth --> JWTIssue["JWT Issued (RBAC)"]:::process
-    JWTIssue --> Dashboard{"Select Action"}:::process
+    Traveler([Traveler]):::startEnd --> Auth["Auth — Zod + JWT"]:::process
+    Auth --> Dashboard{"Select Action"}:::process
 
     Dashboard -->|Create Trip| Chat["Conversational Chat Input"]:::process
     Dashboard -->|Manage Trips| History["Trip History Groups"]:::process
-
-    History --> DeleteReq["Delete / Cancel Request"]:::process
-    DeleteReq --> API["Express API Server"]:::process
+    History --> API["Express API Server"]:::process
 
     Chat --> API
     API --> PlannerService["Planner Service (Business Logic)"]:::process
     PlannerService --> LoadMem["Load Conversation Memory"]:::cache
-    LoadMem --> PlannerAgent["Planner Agent"]:::agent
+    LoadMem --> PlannerAgent["Planner Agent\n— Validate & Structure Goal"]:::agent
 
-    PlannerAgent --> MissingCheck{"Missing Info?"}:::process
-    MissingCheck -->|Yes| Clarify["Ask Clarifying Question"]:::process
+    PlannerAgent --> MissingCheck{"Fields Complete?"}:::process
+    MissingCheck -->|No| Clarify["Ask Clarifying Question"]:::process
     Clarify --> Chat
-    MissingCheck -->|No| Coordinator["Coordinator Agent"]:::agent
+    MissingCheck -->|Yes| Coordinator["Coordinator Agent\n— Orchestrate Pipeline"]:::agent
 
-    Coordinator --> DataGather["Parallel Data Services"]:::process
-    DataGather --> BudgetAgent["Budget Agent"]:::agent
-    BudgetAgent --> ItinAgent["Itinerary Agent"]:::agent
-    ItinAgent --> FormattedPlan["Formatted Travel Plan"]:::process
+    Coordinator --> BudgetAgent["Budget Agent\n— Cost Breakdown"]:::agent
+    BudgetAgent --> ItinAgent["Itinerary Agent\n— Day-by-Day Schedule"]:::agent
+    ItinAgent --> FinalPlan["Formatted Travel Plan"]:::process
 
-    FormattedPlan --> HITL{"Human-in-the-Loop Review"}:::process
-    HITL -->|Reject| ReplanAgent["Replanning Agent"]:::agent
-    ReplanAgent --> Chat
+    FinalPlan --> HITL{"Human-in-the-Loop Review"}:::process
+    HITL -->|Reject| ReplanAgent["Replanning Agent\n— Modify Goal & Re-run"]:::agent
+    ReplanAgent --> Coordinator
 
-    HITL -->|Approve| MockBooking["Export Booking Links (Mock)"]:::mock
-    MockBooking --> SaveDB["Save Trip to MongoDB"]:::process
+    HITL -->|Approve| BookLinks["Generate Booking Links (Mock)"]:::mock
+    BookLinks --> SaveDB["Save Trip to MongoDB"]:::process
     SaveDB --> Notify["Dispatch Notifications"]:::process
     Notify --> Done([Dashboard Updated]):::startEnd
 ```
 
 ---
 
-## 2. Agent Flow
+## 2. Agent Flow — Sequential Execution
 
-Shows the internal AI pipeline: how agents hand off work, how the Coordinator manages parallel and sequential stages, and how Redis caching reduces redundant API calls.
+Shows exactly how the Coordinator calls each agent in sequence and how outputs are passed between them.
 
 ```mermaid
 graph TD
@@ -134,65 +216,74 @@ graph TD
     classDef service fill:#cba6f7,stroke:#cba6f7,stroke-width:2px,color:#11111b;
     classDef cache fill:#fab387,stroke:#fab387,stroke-width:2px,color:#11111b;
     classDef error fill:#f38ba8,stroke:#f38ba8,stroke-width:2px,color:#11111b;
+    classDef output fill:#94e2d5,stroke:#94e2d5,stroke-width:2px,color:#11111b;
 
-    Goal([User Goal]):::startEnd --> PlannerAgent["Planner Agent"]:::agent
-    PlannerAgent --> Decompose["Decompose & Validate Goal"]:::process
+    UserMsg([User Message]):::startEnd --> PlannerAgent
 
-    Decompose --> MissingInfo{"Missing Fields?"}:::process
-    MissingInfo -->|Yes| Clarify["Prompt User for Missing Info"]:::process
-    Clarify --> Goal
+    subgraph Step1 ["Step 1 — Planner Agent"]
+        PlannerAgent["Planner Agent\nParse + Validate Goal"]:::agent
+        GoalOut["Output: GoalObject"]:::output
+        MissingCheck{"Fields Complete?"}:::process
+        PlannerAgent --> MissingCheck
+        MissingCheck -->|No| Clarify["Prompt User"]:::error
+        Clarify --> UserMsg
+        MissingCheck -->|Yes| GoalOut
+    end
 
-    MissingInfo -->|No| Coordinator["Coordinator Agent"]:::agent
+    GoalOut --> Coordinator
 
-    %% --- Stage 1: Parallel Data Services ---
-    subgraph Parallel ["Stage 1 — Parallel Data Retrieval (Coordinator dispatches)"]
+    subgraph Step2 ["Step 2 — Coordinator dispatches Data Services in parallel"]
+        Coordinator["Coordinator Agent\nOrchestrate Pipeline"]:::agent
         WeatherSvc["Weather Service"]:::service
         TransportSvc["Transport Service"]:::service
         HotelSvc["Hotel Service"]:::service
         ActivitySvc["Activity Service"]:::service
+        AggOut["Output: AggregatedContext"]:::output
+
+        Coordinator --> WeatherSvc
+        Coordinator --> TransportSvc
+        Coordinator --> HotelSvc
+        Coordinator --> ActivitySvc
+        WeatherSvc --> AggOut
+        TransportSvc --> AggOut
+        HotelSvc --> AggOut
+        ActivitySvc --> AggOut
     end
 
-    Coordinator --> WeatherSvc
-    Coordinator --> TransportSvc
-    Coordinator --> HotelSvc
-    Coordinator --> ActivitySvc
+    AggOut --> BudgetAgent
 
-    WeatherSvc --> CacheCheck{"Redis Cache Hit?"}:::cache
-    TransportSvc --> CacheCheck
-    HotelSvc --> CacheCheck
-    ActivitySvc --> CacheCheck
-
-    CacheCheck -->|Miss| MCPTools["MCP Tool Calls (Weather / Maps / Transit)"]:::process
-    MCPTools --> WriteCache["Write to Redis Cache"]:::cache
-    WriteCache --> Aggregate
-
-    CacheCheck -->|Hit| Aggregate["Aggregate All Results"]:::process
-
-    %% --- Stage 2: Sequential Planning ---
-    subgraph Sequential ["Stage 2 — Sequential Planning (Coordinator triggers)"]
-        BudgetAgent["Budget Agent"]:::agent
+    subgraph Step3 ["Step 3 — Budget Agent"]
+        BudgetAgent["Budget Agent\nCalculate cost breakdown"]:::agent
         BudgetCheck{"Budget Feasible?"}:::process
-        ItinAgent["Itinerary Agent"]:::agent
+        BudgetOut["Output: BudgetReport"]:::output
+        BudgetAgent --> BudgetCheck
+        BudgetCheck -->|No| AltBudget["Return Budget Alternative"]:::error
+        AltBudget --> UserMsg
+        BudgetCheck -->|Yes| BudgetOut
     end
 
-    Aggregate --> BudgetAgent
-    BudgetAgent --> BudgetCheck
-    BudgetCheck -->|No — Impossible| AltBudget["Propose Budget Alternative"]:::error
-    AltBudget --> Goal
-    BudgetCheck -->|Yes| ItinAgent
+    BudgetOut --> ItinAgent
 
-    ItinAgent --> Coordinator2["Coordinator Agent (Format & Return)"]:::agent
-    Coordinator2 --> LLMFormat["Groq LLM — Markdown Formatting"]:::process
-    LLMFormat --> SaveMemory["Save Memory State"]:::cache
-    SaveMemory --> UserReview["User Reviews Plan (HITL)"]:::process
+    subgraph Step4 ["Step 4 — Itinerary Agent"]
+        ItinAgent["Itinerary Agent\nGenerate day-by-day schedule"]:::agent
+        ItinOut["Output: DailyItinerary[]"]:::output
+        ItinAgent --> ItinOut
+    end
 
-    UserReview --> Approved{"Approved?"}:::process
-    Approved -->|No| ReplanAgent["Replanning Agent"]:::agent
-    ReplanAgent --> Goal
+    ItinOut --> FormatStep
 
-    Approved -->|Yes| MockExport["Export Booking Links (Mock)"]:::process
-    MockExport --> SaveTrip["Save Trip to MongoDB"]:::process
-    SaveTrip --> Done([Workflow Complete]):::startEnd
+    subgraph Step5 ["Step 5 — Coordinator formats & returns"]
+        FormatStep["Coordinator: Format via Groq LLM"]:::agent
+        SaveMem["Save Conversation Memory"]:::cache
+        PlanOut["Output: Markdown Travel Plan"]:::output
+        FormatStep --> SaveMem --> PlanOut
+    end
+
+    PlanOut --> HITL{"User Reviews Plan (HITL)"}:::process
+    HITL -->|Reject| ReplanAgent["Replanning Agent\nModify GoalObject & re-trigger"]:::agent
+    ReplanAgent --> Coordinator
+    HITL -->|Approve| BookLinks["Generate Booking Links + Save Trip"]:::process
+    BookLinks --> Done([Workflow Complete]):::startEnd
 ```
 
 ---
@@ -221,18 +312,18 @@ graph TD
 
     subgraph ServerTier ["Backend (Node.js + Express MVC)"]
         API["API Routes"]:::backend
-        Middlewares["Middlewares: Rate Limit / CORS / Helmet / JWT / RBAC"]:::backend
+        Middlewares["Rate Limit / CORS / Helmet / JWT / RBAC"]:::backend
         PlannerSvc["Planner Service Layer"]:::backend
 
-        subgraph AgentCluster ["AI Agent Cluster (LangChain)"]
-            PlannerAgent["Planner Agent"]:::agent
-            BudgetAgent["Budget Agent"]:::agent
-            ItinAgent["Itinerary Agent"]:::agent
-            ReplanAgent["Replanning Agent"]:::agent
-            CoordAgent["Coordinator Agent"]:::agent
+        subgraph AgentCluster ["AI Agent Cluster — Sequential Pipeline"]
+            PlannerAgent["Planner Agent\n(Validate Input)"]:::agent
+            CoordAgent["Coordinator Agent\n(Orchestrate)"]:::agent
+            BudgetAgent["Budget Agent\n(Cost Breakdown)"]:::agent
+            ItinAgent["Itinerary Agent\n(Day Schedule)"]:::agent
+            ReplanAgent["Replanning Agent\n(Modify & Retry)"]:::agent
         end
 
-        subgraph DataServices ["Data Services (Fetch Only)"]
+        subgraph DataServices ["Data Services (Fetch Only — No LLM)"]
             WeatherSvc["Weather Service"]:::service
             TransportSvc["Transport Service"]:::service
             HotelSvc["Hotel Service"]:::service
@@ -246,7 +337,8 @@ graph TD
         CoordAgent --> TransportSvc
         CoordAgent --> HotelSvc
         CoordAgent --> ActivitySvc
-        CoordAgent --> BudgetAgent --> ItinAgent
+        CoordAgent --> BudgetAgent
+        BudgetAgent --> ItinAgent
     end
 
     subgraph StorageTier ["Database & Caching"]
@@ -256,12 +348,11 @@ graph TD
         LTMem[("Long-Term Memory")]:::db
     end
 
-    subgraph ExternalTier ["External APIs & DevOps"]
+    subgraph ExternalTier ["External APIs"]
         GroqLLM["Groq LLM API (Llama 3)"]:::ext
-        WeatherMCP["Weather MCP (OpenMeteo)"]:::ext
-        MapsMCP["Maps MCP (Google Maps)"]:::ext
-        TransitMCP["Transit MCP (Mock Bus/Train)"]:::ext
-        CalendarMCP["Calendar MCP (Google Calendar)"]:::ext
+        WeatherMCP["Weather MCP — OpenMeteo"]:::ext
+        MapsMCP["Maps MCP — Google Maps"]:::ext
+        TransitMCP["Transit MCP — Mock Data"]:::ext
         AWSSSM["AWS SSM Parameter Store"]:::ext
         CloudWatch["Amazon CloudWatch"]:::ext
     end
@@ -276,7 +367,7 @@ graph TD
     TransportSvc --> TransitMCP
     HotelSvc --> MapsMCP
     PlannerSvc --> AWSSSM
-    API -..-> CloudWatch
+    API -.-> CloudWatch
     API --> MongoDB
 ```
 
@@ -284,7 +375,7 @@ graph TD
 
 ## 4. Deployment Pipeline
 
-Illustrates the Git → CI → CD pipeline, from local development branch through GitHub Actions to AWS infrastructure provisioning.
+Illustrates the Git → CI → CD pipeline, from local branch through GitHub Actions to AWS infrastructure.
 
 ```mermaid
 graph TD
@@ -338,7 +429,7 @@ graph TD
 
 ## 5. Admin Workflow
 
-Admin users bypass the AI layer entirely. They query MongoDB directly for analytics and system health dashboards.
+Admin users bypass the AI layer entirely and query MongoDB directly for analytics dashboards.
 
 ```mermaid
 graph TD
@@ -364,7 +455,6 @@ graph TD
     CostStats --> AuditLogs
     CancelRate --> AuditLogs
     SysHealth --> AuditLogs
-
     AuditLogs --> Charts["Render Chart.js Dashboards"]:::process
 ```
 
@@ -374,7 +464,7 @@ graph TD
 
 ### A. Itinerary Agent Output
 
-The Itinerary Agent generates a structured day-by-day schedule. It factors in travel times, weather advisories, and daily spend caps set by the Budget Agent.
+The Itinerary Agent's sole job is to generate the day-by-day schedule. It consumes the `BudgetReport` (daily spend caps) and raw service data (weather, transport, hotels, activities) returned by the Coordinator.
 
 ```markdown
 # 5-Day Vacation in Ooty (Traveler Count: 2)
@@ -382,16 +472,16 @@ The Itinerary Agent generates a structured day-by-day schedule. It factors in tr
 
 ## Day 1 — Chennai to Ooty Arrival
 * **08:00 AM – 11:30 AM | Rail Transit**
-  * Train: Chennai Central → Mettupalayam | Estimated Cost: ₹1,200 (2 Sleeper Tickets)
+  * Train: Chennai Central → Mettupalayam | Cost: ₹1,200 (2 Sleeper Tickets)
 * **11:30 AM – 12:00 PM | Hotel Check-in**
   * Hotel: Ooty Vista Inn | Transfer: 20-min cab from Mettupalayam station
 * **12:00 PM – 01:30 PM | Lunch**
   * Restaurant: Garden View Cafe | Hours: 11:00 AM–10:00 PM | Cost: ₹600
 * **03:00 PM – 05:30 PM | Afternoon Sightseeing**
-  * Destination: Government Botanical Garden | Hours: 07:00 AM–06:30 PM | Entry: ₹100
+  * Destination: Government Botanical Garden | Entry: ₹100
   * Weather Note: Clear Skies — open-air activity recommended
 * **05:30 PM – 07:30 PM | Evening Activity**
-  * Destination: Ooty Tea Factory & Museum | Hours: 09:00 AM–07:00 PM | Ticket: ₹50
+  * Destination: Ooty Tea Factory & Museum | Ticket: ₹50
 * **08:00 PM – 09:30 PM | Dinner**
   * Restaurant: Mountain Retreat Dining | Cost: ₹800
 * **Day 1 Total**: ₹2,750 (excludes hotel pre-payment)
@@ -399,9 +489,9 @@ The Itinerary Agent generates a structured day-by-day schedule. It factors in tr
 
 ---
 
-### B. Budget Agent Expense Report
+### B. Budget Agent Output
 
-The Budget Agent deterministically audits all cost estimates from services and applies a 10% emergency buffer.
+The Budget Agent's sole job is cost estimation. It receives raw price data from services and outputs a `BudgetReport` with a 10% emergency buffer. This report is handed to the Itinerary Agent as daily spend caps.
 
 | Expense Category | Item Details | Estimated Cost |
 |:---|:---|:---:|
@@ -454,4 +544,4 @@ The Budget Agent deterministically audits all cost estimates from services and a
 
 ---
 
-> **Note on Scope:** This is an internship capstone project. The AI pipeline demonstrates multi-agent orchestration patterns using free-tier infrastructure. The booking flow, transport schedules, and hotel data are intentionally mocked to focus on architecture and agent coordination rather than production integrations.
+> **Note on Scope:** This is an internship capstone project. The AI pipeline demonstrates multi-agent orchestration with single-responsibility agents. The booking flow, transport schedules, and hotel data are intentionally mocked to focus on architecture and agent coordination patterns rather than production integrations.
