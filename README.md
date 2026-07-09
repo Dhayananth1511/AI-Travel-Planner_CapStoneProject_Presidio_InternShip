@@ -1,6 +1,6 @@
 # Travel Planner AI Agent - Capstone Project Documentation
 
-This repository contains the architecture, workflow designs, and system integration details for the Travel Planner AI Client/Server application. The project serves as a comprehensive capstone integrating the architectural principles and technologies studied from **Week 1 through Week 5**.
+This repository contains the architecture, workflow designs, and system integration details for the Travel Planner AI Client/Server application. 
 
 ---
 
@@ -18,14 +18,14 @@ graph TD
     classDef api fill:#f5c2e7,stroke:#f5c2e7,stroke-width:2px,color:#11111b;
     classDef cache fill:#fab387,stroke:#fab387,stroke-width:2px,color:#11111b;
     
-    Traveler([Traveler]):::startEnd --> ClientInput["Dashboard Input Form<br/>(Client Validation: Hook Form + Zod)"]:::process
-    ClientInput --> Auth["User Registration / Login<br/>JWT/RBAC Auth Middleware"]:::process
-    Auth --> FetchData["Fetch User Dashboard Data<br/>(TanStack Query caching, API Pagination & Filters)"]:::process
+    Traveler([Traveler]):::startEnd --> Auth["Registration / Login<br/>(Form Validation: Hook Form + Zod)"]:::process
+    Auth --> JWTIssue["JWT Token Issued<br/>RBAC Role Assigned (Traveler / Admin)"]:::process
+    JWTIssue --> FetchData["Fetch User Dashboard Data<br/>(TanStack Query caching, API Pagination & Filters)"]:::process
     
     FetchData --> Create["Create New Trip Request"]:::process
     FetchData --> View["View Existing Trips / Delete Trip"]:::process
     
-    Create --> InputGoal["User enters Goal Input (includes Destination)<br/>e.g., 'Plan a 5-day trip to Manali for 2 people within ₹30,000'"]:::process
+    Create --> InputGoal["Natural Language Chat Input<br/>e.g., 'Plan a 5-day trip to Manali for 2 people within ₹30,000'"]:::process
     View --> InputGoal
     
     InputGoal --> ExpressRouter["Express.js Server Router<br/>Rate-limiting, CORS, Helmet, Morgan Logging"]:::process
