@@ -279,10 +279,10 @@ graph TD
     
     %% Confidence Checks
     ItinAgent --> ConfidenceCheck{"Do parameters validate?"}:::process
-    ConfidenceCheck -->|No| ErrorHandle["Error Fallback"]:::error
-    ErrorHandle --> EndGrace([Graceful Terminate]):::startEnd
+    ConfidenceCheck -->|No| ErrorHandle["Error Fallback<br/>(Load safe default schema)"]:::error
+    ErrorHandle --> Comp["Coordinator Agent"]:::agent
     
-    ConfidenceCheck -->|Yes| Comp["Coordinator Agent"]:::agent
+    ConfidenceCheck -->|Yes| Comp
     Comp --> LLMFormat["Format via Groq LLM"]:::process
     
     LLMFormat --> SavePlannedDB["Save Trip to DB<br/>(Status: Planned - Awaiting Payment)"]:::process
