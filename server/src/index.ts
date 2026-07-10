@@ -19,6 +19,8 @@ import logger from './utils/logger';
 import { requestId } from './middleware/requestId';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
+import tripRoutes from './routes/tripRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 const app = express();
 
@@ -94,6 +96,8 @@ app.get('/health/cache', async (_req, res) => {
 // ROUTES
 // ==========================================
 app.use('/api/auth', authRoutes);
+app.use('/api/trips', tripRoutes);
+app.use('/api/admin', adminRoutes);
 
 // (NOTE: Trip and Admin routes will be created on Day 2 and mounted here!)
 
