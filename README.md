@@ -546,7 +546,8 @@ sequenceDiagram
     participant Express as Express (index.ts)
     participant Auth as Auth Middleware
     participant PlannerSvc as Planner Service
-    participant Swarm as Swarm Agents (Stage 1 & 2)
+    participant Supervisor as PlannerAgent (Supervisor)
+    participant Coord as CoordinatorAgent
     participant Redis as Redis Cache
     participant DB as MongoDB Atlas
 
@@ -556,47 +557,52 @@ sequenceDiagram
     Auth-->>Express: JWT Verified (userId attached)
     Express->>PlannerSvc: planTrip(message, userId)
     
+    PlannerSvc->>Supervisor: runPlannerAgent(message, context)
+    
     critical Stage 0A: Slot Extraction
-        PlannerSvc->>Swarm: PlannerAgent (Identify limits)
-        Swarm-->>PlannerSvc: Context updated { dest: "Ooty" }
+        Supervisor->>Supervisor: Extract slots using llama3-8b
+        Note over Supervisor: Extracted: { destination: "Ooty" }
     end
 
     critical Stage 0B: Missing Info Check
-        PlannerSvc->>Swarm: MissingInfoAgent (Validate parameters)
-        Note over Swarm: missing: budget, dates, travelers
-        Swarm-->>PlannerSvc: { complete: false, question: "How many travelers, dates, and budget?" }
+        Supervisor->>Supervisor: Check missing slots
+        Note over Supervisor: missing: budget, dates, travelers
+        Supervisor->>Supervisor: Delegate to MissingInfoAgent
+        Supervisor-->>PlannerSvc: { status: NEEDS_INFO, question: "Dates, budget, travelers?" }
         PlannerSvc->>DB: Saves partial Trip (Status: DRAFT)
-        PlannerSvc-->>FE: NEEDS_INFO with question
-        FE-->>Traveler: Renders conversation bubble
+        PlannerSvc-->>FE: Return NEEDS_INFO payload
+        FE-->>Traveler: Renders clarifying question bubble
     end
 
     Traveler->>FE: Replies "2 travelers, 15th-18th Oct, budget 30k"
     FE->>Express: POST /api/trips/plan { message, tripId }
     Express->>PlannerSvc: Runs planTrip(message, userId, tripId)
     PlannerSvc->>DB: Loads existing DRAFT context
-    PlannerSvc->>Swarm: PlannerAgent (Extracts replies)
-    PlannerSvc->>Swarm: MissingInfoAgent (Re-checks slots)
-    Swarm-->>PlannerSvc: { complete: true }
+    PlannerSvc->>Supervisor: runPlannerAgent(message, context)
+    
+    Supervisor->>Supervisor: Extract and merge slots
+    Supervisor->>Supervisor: Re-check slots (all resolved)
 
     critical Stage 1: Parallel Data Retrieval
-        PlannerSvc->>Redis: Check cache flags (weather, transport, hotels)
-        Redis-->>PlannerSvc: Cache Misses
-        Note over PlannerSvc: Fires weather, transport, hotels, and activities concurrent agents
-        PlannerSvc->>Swarm: CoordinatorAgent.runParallelAgents()
-        Note over Swarm: Fetches real weather (OpenMeteo), transport (Amadeus), hotels (Google Places)
-        Swarm-->>PlannerSvc: Merges results into context
-        PlannerSvc->>Redis: Caches results (with custom TTL configurations)
+        Supervisor->>Coord: runParallelAgents(context)
+        Note over Coord: Dynamic bindTools selects tools: weather, transport, accommodation, activities
+        Coord->>Redis: Check caches (Multi-Key)
+        Redis-->>Coord: Cache Misses
+        Note over Coord: Invokes MCP Server tools (OpenMeteo, Google Places, transit)
+        Coord->>Redis: Caches responses (Custom TTLs)
+        Coord-->>Supervisor: Return populated TripContext
     end
 
     critical Stage 2: Sequential Planning
-        PlannerSvc->>Swarm: BudgetAgent.runBudgetAgent()
-        Swarm-->>PlannerSvc: Cost calculations & buffer check (Feasible: True)
-        PlannerSvc->>Swarm: ItineraryAgent.runItineraryAgent()
-        Swarm-->>PlannerSvc: Chronological JSON schedule
-        PlannerSvc->>Swarm: CoordinatorAgent.synthesizeTripPlan() (Markdown summary)
-        Swarm-->>PlannerSvc: Synthesized Markdown Plan
+        Supervisor->>Supervisor: runBudgetAgent(context)
+        Note over Supervisor: Cost checks & buffer checks (Feasible: True)
+        Supervisor->>Supervisor: runItineraryAgent(context)
+        Note over Supervisor: Compiles chronological JSON schedule
+        Supervisor->>Coord: synthesizeTripPlan(context)
+        Coord-->>Supervisor: Returns formatted Markdown plan
     end
 
+    Supervisor-->>PlannerSvc: Returns complete plan & context (Status: PLANNED)
     PlannerSvc->>DB: Saves completed Trip (Status: PLANNED)
     PlannerSvc-->>FE: Return Plan Payload
     FE-->>Traveler: Renders Trip Summary & Schedule Grid
