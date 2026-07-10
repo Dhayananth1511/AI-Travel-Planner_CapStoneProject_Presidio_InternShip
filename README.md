@@ -11,6 +11,7 @@ This repository contains the architecture, workflow designs, and system integrat
 3. [AI Agent Internal Flow](#3-ai-agent-internal-flow)
 4. [Project Development Workflow](#4-project-development-workflow)
 5. [Complete System Architecture](#5-complete-system-architecture)
+5a. [Architecture Walkthrough](#5b-architecture-walkthrough-the-cognitive-travel-agent-swarm)
 6. [MCP Architecture](#6-mcp-architecture-integration-model)
 7. [Multi-Agent Workflow — Agent I/O Specification](#7-multi-agent-workflow--agent-io-specification)
 8. [Agent Communication & Shared Trip Context](#8-agent-communication--shared-trip-context)
@@ -530,7 +531,51 @@ graph TD
     
     DB -->|Return Results| API
     API -->|Send JSON Payload Response| Queries
-```
+# 5b. Architecture Walkthrough: The Cognitive Travel Agent Swarm
+
+## End-to-End Execution Trace
+
+Here is the step-by-step lifecycle of a single traveler request:
+
+### 1. Request Input & Context Ingestion
+* **Trigger**: A traveler sends a message (e.g., *"I want to go to Munnar next week for 3 days, budget is ₹15,000"*) via the React app chat box.
+* **REST Dispatch**: The browser issues a `POST` request to the Express server route handler (`/api/trips`).
+* **Profile & History Retrieval**: The backend loads the traveler's persistent preferences (`longTermMemory` from **MongoDB Atlas**) and the current conversation history to ensure context preservation.
+
+### 2. Cognitive Guardrails & Safety Gateway (`plannerAgent.ts`)
+* **Parameter Extraction**: A fast `llama3-8b` model processes the user message, extracting parameters such as destination, dates, and budget into `TripContext`.
+* **Resiliency Rule 1 (Programmatic Destination Check)**: If the destination is absent, it redirects the flow immediately to the **Destination Recommendation Agent** to offer three curated destinations.
+* **Resiliency Rule 2 (Programmatic Slot Check)**: If the destination is known but critical fields like dates or budget are missing, it executes the **Missing Info Agent**, which generates a friendly clarifying question, pauses downstream execution, and sets status to `NEEDS_INFO`.
+
+### 3. Dynamic Tool Allocation & Routing (`coordinatorAgent.ts`)
+* **Dynamic Binding**: When all critical slots are complete, the **Coordinator Agent** dynamically binds the parallel MCP tools: `fetch_weather`, `fetch_transport`, `fetch_accommodation`, and `fetch_activities`.
+* **Zero-Redundancy Routing**: The routing LLM checks current context fields. If a field is already occupied (e.g. hotel is selected, but user requested checking the weather), it invokes *only* the matching tool, leaving the rest untouched.
+* **Concurrent Execution**: Invokes the chosen tools concurrently in a `Promise.allSettled()` wrapper.
+
+### 4. Cache Check & MCP Layer Retrievals
+* **Caching Layer**: Each tool checks **Redis** using specific keys (e.g., `weather:Munnar:2026-10-10:2026-10-13`).
+  * **Cache HIT**: Instantly returns JSON content.
+  * **Cache MISS**: Triggers the **Model Context Protocol (MCP) server** (e.g., Maps MCP fetching Google Places attractions) using exponential backoff retry policies. Resolved payloads are saved in Redis memory for future queries.
+
+### 5. Programmatic Budget Checks (`budgetAgent.ts`)
+* **Calibration**: The **Budget Agent** calculates:
+  $$\text{Cheapest Transport Option} + (\text{Cheapest Accommodation Option} \times \text{Nights})$$
+* **Divergence Logic**:
+  * **Infeasible**: If computed cost exceeds the traveler's budget cap, the workflow halts itinerary creation, appends money-saving alternatives (suggested budgets) to the chat, and sets status to `PLANNED` with `budgetFeasible: false`.
+  * **Feasible**: Continues.
+
+### 6. Day-by-day Itinerary & Error Boundaries (`itineraryAgent.ts`)
+* **Itinerary Compilation**: The **Itinerary Agent** uses a large `llama3-70b` model to organize the attractions, hotels, and average weather conditions into a day-by-day schedule JSON.
+* **Reserves Catch-Block**: If JSON parsing fails or has date inconsistencies, it catches the error and auto-injects a safe placeholder structure to avoid crashing the server.
+
+### 7. Synthesized Presentation & Persistent Store
+* **Compilation**: The **Coordinator Agent** converts the full context JSON into a beautiful, human-readable markdown trip summary.
+* **Persistence**: Writes the final markdown plan, conversation logs, and status `PLANNED` back to MongoDB Atlas.
+* **Client Sync**: Emits the markdown layout and updated status to the React interface.
+
+### 8. HITL (Human-in-the-Loop) Control Gate
+* **Approving (Happy Path)**: The user clicks "Approve". It triggers the mocked **Booking Agent** (status changes to `CONFIRMED`) and triggers the **Calendar MCP** to write events directly into the user's OAuth2 Google Calendar.
+* **Rejecting (Replanning)**: The user requests tweaks (e.g. *"change hotel to luxury"*). The **Replanning Agent** identifies which context keys to clear (accommodation), preserves other elements (weather, transit, activities), and restarts the flow from Stage 3.
 
 ---
 
