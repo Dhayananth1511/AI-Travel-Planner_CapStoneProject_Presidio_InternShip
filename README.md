@@ -386,6 +386,7 @@ graph TD
     classDef db fill:#f9e2af,stroke:#f9e2af,stroke-width:2px,color:#11111b;
     classDef ext fill:#f5c2e7,stroke:#f5c2e7,stroke-width:2px,color:#11111b;
     classDef cache fill:#fab387,stroke:#fab387,stroke-width:2px,color:#11111b;
+    classDef hitl fill:#f38ba8,stroke:#f38ba8,stroke-width:2px,color:#11111b;
 
     %% Frontend Tier
     subgraph ClientTier ["Frontend Client (React TS)"]
@@ -422,9 +423,10 @@ graph TD
         
         %% Sub-agents cluster
         subgraph agents ["AI Agent Cluster"]
-            TripPlannerAgent["Planner Agent"]:::backend
+            TripPlannerAgent["Planner Agent (Supervisor)"]:::backend
             MissingInfoAgent["Missing Info Agent"]:::backend
             DestRecAgent["Dest Rec Agent"]:::backend
+            Coord["Coordinator Agent"]:::backend
             WeatherAgent["Weather Agent"]:::backend
             TransAgent["Trans Agent"]:::backend
             AccomAgent["Accom Agent"]:::backend
@@ -436,23 +438,38 @@ graph TD
         end
         
         AIPlanner --> TripPlannerAgent
-        TripPlannerAgent --> MissingInfoAgent
-        TripPlannerAgent --> DestRecAgent
-        TripPlannerAgent --> WeatherAgent
-        TripPlannerAgent --> TransAgent
-        TripPlannerAgent --> AccomAgent
-        TripPlannerAgent --> ActAgent
-        TripPlannerAgent --> BudAgent
-        TripPlannerAgent --> ItinAgent
-        TripPlannerAgent --> BookingAgent
-        TripPlannerAgent --> ReplanningAgent
         
-        TransAgent --> Coord["Coordinator Agent"]:::backend
-        AccomAgent --> Coord
-        BudAgent --> Coord
+        %% Supervisor routing
+        TripPlannerAgent -->|Missing slots| MissingInfoAgent
+        TripPlannerAgent -->|No destination| DestRecAgent
+        TripPlannerAgent -->|Slots Complete| Coord
+        
+        %% Coordinator parallel retrievals
+        Coord --> WeatherAgent
+        Coord --> TransAgent
+        Coord --> AccomAgent
+        Coord --> ActAgent
+        
+        %% Sequential refinement
+        WeatherAgent --> BudAgent
+        TransAgent --> BudAgent
+        AccomAgent --> BudAgent
+        ActAgent --> BudAgent
+        
+        BudAgent --> ItinAgent
         ItinAgent --> Coord
-        BookingAgent --> Coord
     end
+
+    %% HITL Flow Gateway
+    HITLGateCheck{"Human-in-the-Loop Gateway"}:::hitl
+    Coord -->|Markdown Plan Output| HITLGateCheck
+    
+    %% Approve/Reject paths
+    HITLGateCheck -->|Reject| ReplanningAgent
+    ReplanningAgent -->|Context Preservation| CoordinatorRefeed["Planner Service / Supervisor Loop"]:::backend
+    CoordinatorRefeed --> TripPlannerAgent
+    
+    HITLGateCheck -->|Approve| BookingAgent
 
     %% Storage Tier
     subgraph DBTier ["Database & Caching"]
@@ -495,10 +512,15 @@ graph TD
     Queries -->|JSON REST Requests| API
     PlannerService -->|Query & Update History| ST_Memory
     PlannerService -->|Query preferences| LT_Memory
-    PlannerService -->|Check cache| RedisCache
+    
+    WeatherAgent -.->|Read/Write Cache| RedisCache
+    TransAgent -.->|Read/Write Cache| RedisCache
+    AccomAgent -.->|Read/Write Cache| RedisCache
+    ActAgent -.->|Read/Write Cache| RedisCache
     
     Coord -->|Inference Query| LLM
     LLM -->|Standardized MCP Tool Requests| LCTools
+    BookingAgent -->|OAuth Calendar Event| CalendarTool
     Coord -->|Store Completed Trip Profile| DB
     PlannerService -->|Read Variables| AWSSSM
     API -.->|Metrics & Diagnostics| CloudWatch
