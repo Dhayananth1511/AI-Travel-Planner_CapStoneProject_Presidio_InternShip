@@ -531,6 +531,7 @@ graph TD
     
     DB -->|Return Results| API
     API -->|Send JSON Payload Response| Queries
+```
 # 5b. Architecture Walkthrough: The Cognitive Travel Agent Swarm
 
 ## End-to-End Execution Trace
