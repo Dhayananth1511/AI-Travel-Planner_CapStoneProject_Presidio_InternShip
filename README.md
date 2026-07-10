@@ -11,7 +11,7 @@ This repository contains the architecture, workflow designs, and system integrat
 3. [AI Agent Internal Flow](#3-ai-agent-internal-flow)
 4. [Project Development Workflow](#4-project-development-workflow)
 5. [Complete System Architecture](#5-complete-system-architecture)
-5a. [Architecture Walkthrough](#5b-architecture-walkthrough-the-cognitive-travel-agent-swarm)
+5a. [Architecture Walkthrough](#5a-architecture-walkthrough-the-cognitive-travel-agent-swarm)
 6. [MCP Architecture](#6-mcp-architecture-integration-model)
 7. [Multi-Agent Workflow — Agent I/O Specification](#7-multi-agent-workflow--agent-io-specification)
 8. [Agent Communication & Shared Trip Context](#8-agent-communication--shared-trip-context)
@@ -532,11 +532,75 @@ graph TD
     DB -->|Return Results| API
     API -->|Send JSON Payload Response| Queries
 ```
-# 5b. Architecture Walkthrough: The Cognitive Travel Agent Swarm
+# 5a. Architecture Walkthrough: The Cognitive Travel Agent Swarm
 
 ## End-to-End Execution Trace
 
 Here is the step-by-step lifecycle of a single traveler request:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Traveler as Traveler
+    participant FE as React Client
+    participant Express as Express (index.ts)
+    participant Auth as Auth Middleware
+    participant PlannerSvc as Planner Service
+    participant Swarm as Swarm Agents (Stage 1 & 2)
+    participant Redis as Redis Cache
+    participant DB as MongoDB Atlas
+
+    Traveler->>FE: Enters "Trip to Ooty for 4 days"
+    FE->>Express: POST /api/trips/plan { message }
+    Express->>Auth: Validates JWT access token
+    Auth-->>Express: JWT Verified (userId attached)
+    Express->>PlannerSvc: planTrip(message, userId)
+    
+    critical Stage 0A: Slot Extraction
+        PlannerSvc->>Swarm: PlannerAgent (Identify limits)
+        Swarm-->>PlannerSvc: Context updated { dest: "Ooty" }
+    end
+
+    critical Stage 0B: Missing Info Check
+        PlannerSvc->>Swarm: MissingInfoAgent (Validate parameters)
+        Note over Swarm: missing: budget, dates, travelers
+        Swarm-->>PlannerSvc: { complete: false, question: "How many travelers, dates, and budget?" }
+        PlannerSvc->>DB: Saves partial Trip (Status: DRAFT)
+        PlannerSvc-->>FE: NEEDS_INFO with question
+        FE-->>Traveler: Renders conversation bubble
+    end
+
+    Traveler->>FE: Replies "2 travelers, 15th-18th Oct, budget 30k"
+    FE->>Express: POST /api/trips/plan { message, tripId }
+    Express->>PlannerSvc: Runs planTrip(message, userId, tripId)
+    PlannerSvc->>DB: Loads existing DRAFT context
+    PlannerSvc->>Swarm: PlannerAgent (Extracts replies)
+    PlannerSvc->>Swarm: MissingInfoAgent (Re-checks slots)
+    Swarm-->>PlannerSvc: { complete: true }
+
+    critical Stage 1: Parallel Data Retrieval
+        PlannerSvc->>Redis: Check cache flags (weather, transport, hotels)
+        Redis-->>PlannerSvc: Cache Misses
+        Note over PlannerSvc: Fires weather, transport, hotels, and activities concurrent agents
+        PlannerSvc->>Swarm: CoordinatorAgent.runParallelAgents()
+        Note over Swarm: Fetches real weather (OpenMeteo), transport (Amadeus), hotels (Google Places)
+        Swarm-->>PlannerSvc: Merges results into context
+        PlannerSvc->>Redis: Caches results (with custom TTL configurations)
+    end
+
+    critical Stage 2: Sequential Planning
+        PlannerSvc->>Swarm: BudgetAgent.runBudgetAgent()
+        Swarm-->>PlannerSvc: Cost calculations & buffer check (Feasible: True)
+        PlannerSvc->>Swarm: ItineraryAgent.runItineraryAgent()
+        Swarm-->>PlannerSvc: Chronological JSON schedule
+        PlannerSvc->>Swarm: CoordinatorAgent.synthesizeTripPlan() (Markdown summary)
+        Swarm-->>PlannerSvc: Synthesized Markdown Plan
+    end
+
+    PlannerSvc->>DB: Saves completed Trip (Status: PLANNED)
+    PlannerSvc-->>FE: Return Plan Payload
+    FE-->>Traveler: Renders Trip Summary & Schedule Grid
+```
 
 ### 1. Request Input & Context Ingestion
 * **Trigger**: A traveler sends a message (e.g., *"I want to go to Munnar next week for 3 days, budget is ₹15,000"*) via the React app chat box.
