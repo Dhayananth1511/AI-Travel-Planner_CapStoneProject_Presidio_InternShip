@@ -51,6 +51,7 @@ export default function ChatPage() {
   const [activeStep, setActiveStep] = useState<string | null>(null);
   const [context, setContext] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'inspector' | 'itinerary'>('inspector');
+  const [showBudgetBreakdown, setShowBudgetBreakdown] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch existing trip on mount if tripId query param is present
@@ -95,6 +96,7 @@ export default function ChatPage() {
       setActiveTab('inspector');
       setActiveStep(null);
       setShowReplanInput(false);
+      setShowBudgetBreakdown(false);
     }
   }, [tripIdParam]);
 
@@ -379,79 +381,6 @@ export default function ChatPage() {
               </div>
 
               {/* DYNAMIC RETRIEVED DATA */}
-              {context.weather && (
-                <div className="premium-card rounded-xl p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <Sun className="h-4.5 w-4.5 text-amber-500" /> Climate Specialist Agent
-                  </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
-                    <p className="text-slate-300 font-medium">
-                      ⛅ **Conditions**: {
-                        Array.isArray(context.weather.forecast)
-                          ? context.weather.forecast.map((f: any) => f.condition || 'Clear').filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ')
-                          : (typeof context.weather.forecast === 'string' ? context.weather.forecast : 'Sunny Skies')
-                      } {context.weather.average_temp_c ? `(Avg Temp: ${context.weather.average_temp_c}°C)` : ''}
-                    </p>
-                    {context.weather.reasoning && (
-                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
-                        🧠 **Weather Analysis**: {context.weather.reasoning}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {context.accommodation && (
-                <div className="premium-card rounded-xl p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <Building2 className="h-4.5 w-4.5 text-primary" /> Lodging Specialist Agent
-                  </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
-                    <p className="font-semibold text-slate-200">{context.accommodation.recommended || 'Hotel Options matched'}</p>
-                    {context.accommodation.cost_per_night && <p className="text-slate-400">Estimated Cost: ₹{context.accommodation.cost_per_night.toLocaleString()} / night</p>}
-                    {context.accommodation.reasoning && (
-                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
-                        🧠 **Lodging Analysis**: {context.accommodation.reasoning}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {context.transport && (
-                <div className="premium-card rounded-xl p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <Car className="h-4.5 w-4.5 text-emerald-450" /> Transit Specialist Agent
-                  </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
-                    {context.transport.best_option && <p className="text-slate-300">🛫 **Best Option**: {context.transport.best_option}</p>}
-                    {context.transport.price && <p className="text-emerald-400 font-semibold">Total Price: ₹{context.transport.price.toLocaleString()}</p>}
-                    {context.transport.reasoning && (
-                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
-                        🧠 **Transit Analysis**: {context.transport.reasoning}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {context.activities && (
-                <div className="premium-card rounded-xl p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <MapPin className="h-4.5 w-4.5 text-primary" /> Sightseeing Specialist Agent
-                  </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
-                    <p className="text-slate-300 font-medium">🗺️ **Matched Interests**: {(context.input.interests || []).join(', ') || 'General Sightseeing'}</p>
-                    {context.activities.reasoning && (
-                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
-                        🧠 **Activity Analysis**: {context.activities.reasoning}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* BUDGET ASSESSMENT */}
               {context.budget && (
                 <div className="premium-card rounded-xl p-4 space-y-3">
                   <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
@@ -462,7 +391,7 @@ export default function ChatPage() {
                     <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
                       <span className="text-[10px] text-slate-500 block font-bold">Estimated Total</span>
                       <span className="text-xs font-bold text-slate-200">
-                        ₹{context.budget.total_estimated_cost?.toLocaleString()}
+                        ₹{(context.budget.total_cost_inr ?? context.budget.total_estimated_cost)?.toLocaleString()}
                       </span>
                     </div>
                     <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
@@ -476,6 +405,83 @@ export default function ChatPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Toggle Cost Breakdown Dropdown */}
+                  {(context.budget.transport !== undefined || context.budget.accommodation !== undefined) && (
+                    <div className="space-y-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowBudgetBreakdown(!showBudgetBreakdown)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-slate-800 text-xs font-bold text-indigo-305 hover:text-indigo-200 transition select-none"
+                      >
+                        <span className="flex items-center gap-1">
+                          📊 {showBudgetBreakdown ? 'Hide Details' : 'View Cost Breakdown'}
+                        </span>
+                        {showBudgetBreakdown ? (
+                          <ChevronUp className="h-4 w-4 text-slate-400" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-slate-400" />
+                        )}
+                      </button>
+
+                      {showBudgetBreakdown && (
+                        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 mt-2 overflow-x-auto animate-fadeIn">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-800 text-[10px] text-slate-500 uppercase font-bold">
+                                <th className="pb-1.5 font-bold">Category</th>
+                                <th className="pb-1.5 text-right font-bold">Cost (INR)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-900 font-medium">
+                              <tr>
+                                <td className="py-2 text-slate-405">✈️ Transit</td>
+                                <td className="py-2 text-right text-slate-200">
+                                  ₹{(context.budget.transport || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-slate-405">🏨 Lodging</td>
+                                <td className="py-2 text-right text-slate-200">
+                                  ₹{(context.budget.accommodation || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-slate-405">🍔 Food & Meals</td>
+                                <td className="py-2 text-right text-slate-200">
+                                  ₹{(context.budget.food || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-slate-405">🎟️ Sightseeing / Entrance</td>
+                                <td className="py-2 text-right text-slate-250">
+                                  ₹{(context.budget.activities || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-slate-450">🚕 Local Transport</td>
+                                <td className="py-2 text-right text-slate-200">
+                                  ₹{(context.budget.local_transport || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-slate-450">🚨 Emergency Fund (10%)</td>
+                                <td className="py-2 text-right text-slate-200">
+                                  ₹{(context.budget.emergency_fund || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr className="border-t border-slate-850 font-bold">
+                                <td className="pt-2 text-primary font-bold">💰 Total Cost</td>
+                                <td className="pt-2 text-right text-emerald-450 font-bold">
+                                  ₹{(context.budget.total_cost_inr ?? context.budget.total_estimated_cost)?.toLocaleString()}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {!context.budget.is_feasible && context.budget.alternatives && (
                     <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 space-y-2.5">
@@ -499,6 +505,98 @@ export default function ChatPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {context.weather && (
+                <div className="premium-card rounded-xl p-4 space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <Sun className="h-4.5 w-4.5 text-amber-500" /> Climate Specialist Agent
+                  </h4>
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-2.5">
+                    <p className="text-slate-300 font-medium">
+                      ⛅ **Conditions**: {
+                        Array.isArray(context.weather.forecast)
+                          ? context.weather.forecast.map((f: any) => f.condition || 'Clear').filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ')
+                          : (typeof context.weather.forecast === 'string' ? context.weather.forecast : 'Sunny Skies')
+                      } {context.weather.average_temp_c ? `(Avg Temp: ${context.weather.average_temp_c}°C)` : ''}
+                    </p>
+                    {context.weather.reasoning && (
+                      <div className="text-indigo-300 mt-2 bg-indigo-950/45 p-2.5 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        <div className="flex items-start gap-1">
+                          <span className="text-[12px] shrink-0 mt-0.5">🧠</span>
+                          <div className="prose prose-invert max-w-none text-[11px] text-indigo-300 space-y-1">
+                            <ReactMarkdown>{context.weather.reasoning}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {context.accommodation && (
+                <div className="premium-card rounded-xl p-4 space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <Building2 className="h-4.5 w-4.5 text-primary" /> Lodging Specialist Agent
+                  </h4>
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-2.5">
+                    <p className="font-semibold text-slate-207">{context.accommodation.recommended || 'Hotel Options matched'}</p>
+                    {context.accommodation.cost_per_night && <p className="text-slate-400">Estimated Cost: ₹{context.accommodation.cost_per_night.toLocaleString()} / night</p>}
+                    {context.accommodation.reasoning && (
+                      <div className="text-indigo-300 mt-2 bg-indigo-950/45 p-2.5 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        <div className="flex items-start gap-1">
+                          <span className="text-[12px] shrink-0 mt-0.5">🧠</span>
+                          <div className="prose prose-invert max-w-none text-[11px] text-indigo-300 space-y-1">
+                            <ReactMarkdown>{context.accommodation.reasoning}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {context.transport && (
+                <div className="premium-card rounded-xl p-4 space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <Car className="h-4.5 w-4.5 text-emerald-450" /> Transit Specialist Agent
+                  </h4>
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-2.5">
+                    {context.transport.best_option && <p className="text-slate-300">🛫 **Best Option**: {context.transport.best_option}</p>}
+                    {context.transport.price && <p className="text-emerald-400 font-semibold">Total Price: ₹{context.transport.price.toLocaleString()}</p>}
+                    {context.transport.reasoning && (
+                      <div className="text-indigo-305 mt-2 bg-indigo-950/45 p-2.5 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        <div className="flex items-start gap-1">
+                          <span className="text-[12px] shrink-0 mt-0.5">🧠</span>
+                          <div className="prose prose-invert max-w-none text-[11px] text-indigo-300 space-y-1">
+                            <ReactMarkdown>{context.transport.reasoning}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {context.activities && (
+                <div className="premium-card rounded-xl p-4 space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <MapPin className="h-4.5 w-4.5 text-primary" /> Sightseeing Specialist Agent
+                  </h4>
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-2.5">
+                    <p className="text-slate-350 font-medium">🗺️ **Matched Interests**: {(context.input.interests || []).join(', ') || 'General Sightseeing'}</p>
+                    {context.activities.reasoning && (
+                      <div className="text-indigo-305 mt-2 bg-indigo-950/45 p-2.5 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        <div className="flex items-start gap-1">
+                          <span className="text-[12px] shrink-0 mt-0.5">🧠</span>
+                          <div className="prose prose-invert max-w-none text-[11px] text-indigo-300 space-y-1">
+                            <ReactMarkdown>{context.activities.reasoning}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
