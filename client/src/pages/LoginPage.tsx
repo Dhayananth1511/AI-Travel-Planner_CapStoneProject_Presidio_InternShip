@@ -1,7 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, Plane, AlertCircle } from 'lucide-react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Mail, Lock, Plane, AlertCircle, ShieldAlert } from 'lucide-react';
 import { loginSchema } from '../schemas/authSchemas';
 import type { LoginFormData } from '../schemas/authSchemas';
 import { useAuthStore } from '../store/authStore';
@@ -10,15 +11,28 @@ import api from '../lib/axios';
 export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [searchParams] = useSearchParams();
+  const roleParam = searchParams.get('role');
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
     setError,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    if (roleParam === 'admin') {
+      setValue('email', 'admin@voyage.com');
+      setValue('password', 'Password123');
+    } else if (roleParam === 'traveler') {
+      setValue('email', 'traveler@voyage.com');
+      setValue('password', 'Password123');
+    }
+  }, [roleParam, setValue]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -105,6 +119,15 @@ export default function LoginPage() {
               <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3.5 text-sm text-red-400 flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 shrink-0" />
                 <span>{errors.root.message}</span>
+              </div>
+            )}
+
+            {roleParam && (
+              <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3 text-xs text-indigo-300 flex items-center gap-1.5 mt-2">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-indigo-400" />
+                <span>
+                  Testing {roleParam === 'admin' ? 'Admin' : 'Traveler'} credentials prefilled! Submit to launch workspace.
+                </span>
               </div>
             )}
 

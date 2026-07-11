@@ -33,7 +33,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     const emailNormalization = email.toLowerCase().trim();
 
@@ -49,6 +49,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       name,
       email: emailNormalization,
       password,
+      role: role === 'admin' ? 'admin' : 'traveler',
     });
 
     const { accessToken, refreshToken } = generateTokens(user.id, user.role);
