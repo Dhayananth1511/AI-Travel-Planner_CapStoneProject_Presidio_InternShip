@@ -113,7 +113,11 @@ Ensure you populate tool arguments using the current context: destination="${inp
       else if (name === 'fetch_accommodation') newContext.accommodation = value;
       else if (name === 'fetch_activities') newContext.activities = value;
     } else {
-      logger.error('Dynamic tool call failed during concurrent execution', { error: res.reason });
+      const err = res.reason;
+      logger.error('Dynamic tool call failed during concurrent execution', { 
+        errorMessage: err?.message || String(err), 
+        errorStack: err?.stack 
+      });
     }
   });
 
