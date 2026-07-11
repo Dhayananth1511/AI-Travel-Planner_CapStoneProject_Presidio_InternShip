@@ -11,6 +11,7 @@ import { runDestinationRecAgent } from './destinationRecAgent';
 import { runParallelAgents, synthesizeTripPlan } from './coordinatorAgent';
 import { runBudgetAgent } from './budgetAgent';
 import { runItineraryAgent } from './itineraryAgent';
+import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
 const llm = new ChatGroq({
@@ -104,10 +105,10 @@ Recent chat context:
 ${recentHistory || '(No history yet)'}
 `;
 
-  const extractionResponse = await llm.invoke([
+  const extractionResponse = await withRetry(() => llm.invoke([
     new SystemMessage(extractionPrompt),
     new HumanMessage(userMessage),
-  ]);
+  ]));
 
   let updatedInput = { ...context.input };
   try {
@@ -177,10 +178,10 @@ You must invoke exactly one tool.`;
     orchestrateAndGenerateTripPlanTool,
   ]);
 
-  const supervisorResponse = await supervisorWithTools.invoke([
+  const supervisorResponse = await withRetry(() => supervisorWithTools.invoke([
     new SystemMessage(supervisorPrompt),
     new HumanMessage('Delegate the next workflow executor tool call.')
-  ]);
+  ]));
 
   const toolCalls = supervisorResponse.tool_calls || [];
   let selectedTool = toolCalls[0]?.name || 'validate_trip_inputs';

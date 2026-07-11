@@ -5,6 +5,7 @@
 import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
+import { withRetry } from '../utils/retry';
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -16,7 +17,7 @@ export async function runDestinationRecAgent(
   context: TripContext,
   longTermMemory: string
 ): Promise<{ recommendedDestinations: string[]; reasoning: string; selectedDestination: string }> {
-  const response = await llm.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(
       `You are a travel expert. Recommend exactly 3 Indian travel destinations.
        Return ONLY valid JSON:
@@ -29,7 +30,7 @@ export async function runDestinationRecAgent(
        Travelers: ${context.input.travelers}.
        Past preferences: ${longTermMemory || 'First-time user'}`
     ),
-  ]);
+  ]));
 
   try {
     const jsonMatch = response.content.toString().match(/\{[\s\S]*\}/);

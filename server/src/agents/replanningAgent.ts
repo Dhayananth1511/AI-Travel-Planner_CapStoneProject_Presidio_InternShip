@@ -5,6 +5,7 @@
 import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
+import { withRetry } from '../utils/retry';
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -16,7 +17,7 @@ export async function runReplanningAgent(
   context: TripContext,
   rejectionReason: string
 ): Promise<{ updatedContext: TripContext; whatChanged: string[] }> {
-  const response = await llm.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(
       `A user rejected a travel plan. Identify ONLY what needs to change.
        Return ONLY valid JSON: { "changes": ["accommodation", "budget", "itinerary"], "instruction": "brief explanation" }
@@ -26,7 +27,7 @@ export async function runReplanningAgent(
       `Rejection reason: "${rejectionReason}"
        Current plan: destination=${context.input.destination}, budget=₹${context.input.budget_inr}, hotel=${context.accommodation?.recommended}`
     ),
-  ]);
+  ]));
 
   try {
     const jsonMatch = response.content.toString().match(/\{[\s\S]*\}/);

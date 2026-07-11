@@ -8,6 +8,7 @@ import { weatherTool } from './weatherAgent';
 import { transportTool } from './transportAgent';
 import { accommodationTool } from './accommodationAgent';
 import { activityTool } from './activityAgent';
+import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
 const llm = new ChatGroq({
@@ -54,7 +55,7 @@ Rules:
    - If user requests normal, mid-range, average, or moderate options, pass tier="mid-range".
 Ensure you populate tool arguments using the current context: destination="${input.destination || ''}", origin="${input.origin || ''}", start_date="${input.start_date || ''}", end_date="${input.end_date || ''}", travelers=${input.travelers || 0}, days=${days}, interests=${JSON.stringify(input.interests || [])}.`;
 
-  const response = await modelWithTools.invoke([
+  const response = await withRetry(() => modelWithTools.invoke([
     new SystemMessage(systemPrompt),
     new HumanMessage(`User query: "${userMessage}"\n\nCurrent context state: ${JSON.stringify({
       hasWeather: !!context.weather?.forecast?.length,
@@ -62,7 +63,7 @@ Ensure you populate tool arguments using the current context: destination="${inp
       hasAccommodation: !!context.accommodation?.hotels?.length,
       hasActivities: !!context.activities?.attractions?.length,
     })}`)
-  ]);
+  ]));
 
   const toolCalls = response.tool_calls || [];
   logger.info('LLM Router tool selection result', { toolCallsCount: toolCalls.length, toolCalls: toolCalls.map(t => t.name) });
@@ -129,14 +130,14 @@ Ensure you populate tool arguments using the current context: destination="${inp
 }
 
 export async function synthesizeTripPlan(context: TripContext): Promise<string> {
-  const response = await llm.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(
       `You are a travel content writer. Create a beautiful, structured markdown travel plan.
        Include: trip overview, weather summary, transport details, hotel, day-by-day schedule, 
        budget breakdown table, and packing tips. Use emojis and formatting.`
     ),
     new HumanMessage(JSON.stringify(context, null, 2)),
-  ]);
+  ]));
 
   return response.content.toString();
 }

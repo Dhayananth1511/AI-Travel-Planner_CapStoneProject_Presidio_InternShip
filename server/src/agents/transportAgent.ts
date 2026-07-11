@@ -6,6 +6,7 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
 import { getTransportOptions } from '../mcp-servers/transitMCP';
+import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
 const llm = new ChatGroq({
@@ -37,10 +38,10 @@ export const transportTool = tool(
       const systemPrompt = `You are VoyageFlow's Transport Routing Specialist Agent. 
 Analyze the travel transit options from ${origin} to ${destination} for ${travelers} travelers on ${travel_date}.
 Briefly explain if the pricing is reasonable, which option is fastest/best, and any transit tips in 2-3 sentences. Keep it short.`;
-      const llmRes = await llm.invoke([
+      const llmRes = await withRetry(() => llm.invoke([
         new SystemMessage(systemPrompt),
         new HumanMessage(JSON.stringify(data)),
-      ]);
+      ]));
       reasoning = llmRes.content.toString();
     } catch (err) {
       logger.error('Transport Agent reasoning analysis failed', err);

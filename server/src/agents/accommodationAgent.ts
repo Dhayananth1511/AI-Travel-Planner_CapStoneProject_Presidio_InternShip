@@ -6,6 +6,7 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
 import { searchHotels } from '../mcp-servers/bookingMCP';
+import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
 const llm = new ChatGroq({
@@ -37,10 +38,10 @@ export const accommodationTool = tool(
       const systemPrompt = `You are VoyageFlow's Lodging & Accommodation Specialist Agent. 
 Analyze the accommodation choices in ${destination} checking in on ${check_in} and out on ${check_out} for ${travelers} guests.
 Briefly explain if the hotels are suitable, what amenities or lodging tiers are interesting, and safety/convenience ratings in 2-3 sentences. Keep it short.`;
-      const llmRes = await llm.invoke([
+      const llmRes = await withRetry(() => llm.invoke([
         new SystemMessage(systemPrompt),
         new HumanMessage(JSON.stringify(data)),
-      ]);
+      ]));
       reasoning = llmRes.content.toString();
     } catch (err) {
       logger.error('Accommodation Agent reasoning analysis failed', err);

@@ -6,6 +6,7 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
 import { getPlacesNearby } from '../mcp-servers/mapsMCP';
+import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
 const llm = new ChatGroq({
@@ -37,10 +38,10 @@ export const activityTool = tool(
       const systemPrompt = `You are VoyageFlow's Local Sightseeing & Activities Specialist Agent. 
 Analyze the suggested places in ${destination} for a ${days}-day trip matching traveler interests: ${interests.join(', ')}.
 Briefly explain if these matches fit traveler preferences, and highlight 2-3 key landmark recommendations in 2-3 sentences. Keep it short.`;
-      const llmRes = await llm.invoke([
+      const llmRes = await withRetry(() => llm.invoke([
         new SystemMessage(systemPrompt),
         new HumanMessage(JSON.stringify(data)),
-      ]);
+      ]));
       reasoning = llmRes.content.toString();
     } catch (err) {
       logger.error('Activity Agent reasoning analysis failed', err);

@@ -5,6 +5,7 @@
 import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
+import { withRetry } from '../utils/retry';
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -15,7 +16,7 @@ const llm = new ChatGroq({
 export async function runItineraryAgent(context: TripContext): Promise<{ days: any[]; notes: string }> {
   const { input, weather, transport, accommodation, activities, budget } = context;
 
-  const response = await llm.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(
       `You are a travel itinerary planner. Create a detailed day-by-day itinerary.
        Return ONLY valid JSON:
@@ -44,7 +45,7 @@ export async function runItineraryAgent(context: TripContext): Promise<{ days: a
        Weather: ${JSON.stringify(weather?.forecast?.slice(0, 3))}
        Transport arrival: ${transport?.options?.[0]?.arrival || '14:00'}`
     ),
-  ]);
+  ]));
 
   try {
     const jsonMatch = response.content.toString().match(/\{[\s\S]*\}/);

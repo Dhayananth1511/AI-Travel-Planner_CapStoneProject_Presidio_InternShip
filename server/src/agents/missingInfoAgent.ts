@@ -7,6 +7,8 @@ import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
 
+import { withRetry } from '../utils/retry';
+
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
   model: 'llama-3.1-8b-instant',
@@ -35,7 +37,7 @@ export async function runMissingInfoAgent(context: TripContext): Promise<Missing
   }
 
   // Use LLM to generate a very short, simple question (maximum 15 words)
-  const response = await llm.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(
       `You are a concise travel assistant. Generate exactly ONE very short, direct question 
        asking the user for the missing fields: ${missingFields.join(', ')}.
@@ -45,7 +47,7 @@ export async function runMissingInfoAgent(context: TripContext): Promise<Missing
       `Current details known: ${JSON.stringify(input)}. 
        Please ask for the missing: ${missingFields.join(', ')}.`
     ),
-  ]);
+  ]));
 
   return {
     complete: false,

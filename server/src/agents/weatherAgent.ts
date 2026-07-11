@@ -7,6 +7,7 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
 import { getWeatherForecast } from '../mcp-servers/weatherMCP';
+import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
 const llm = new ChatGroq({
@@ -38,10 +39,10 @@ export const weatherTool = tool(
       const systemPrompt = `You are VoyageFlow's Climate Specialist Agent. 
 Analyze the following raw weather forecast data for ${destination} from ${start_date} to ${end_date}.
 Briefly explain if the conditions are favorable for travel, note the average temperature, and give minor clothing/packing advice in 2-3 friendly sentences. Keep it short.`;
-      const llmRes = await llm.invoke([
+      const llmRes = await withRetry(() => llm.invoke([
         new SystemMessage(systemPrompt),
         new HumanMessage(JSON.stringify(weatherData)),
-      ]);
+      ]));
       reasoning = llmRes.content.toString();
     } catch (err) {
       logger.error('Weather Agent reasoning analysis failed', err);
