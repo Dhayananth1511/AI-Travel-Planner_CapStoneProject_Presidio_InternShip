@@ -80,6 +80,24 @@ export default function ChatPage() {
     enabled: !!tripIdParam,
   });
 
+  // Reset to clean planning session if there is no tripId in search parameters
+  useEffect(() => {
+    if (!tripIdParam) {
+      setTripId(undefined);
+      setContext(null);
+      setMessages([
+        {
+          role: 'assistant',
+          content:
+            "Hi! I'm VoyageFlow, your Lead Travel Supervisor Agent. 🗺️\n\nWhere would you like to travel next? Let me know the destination, dates, budget, or number of travelers to begin!",
+        },
+      ]);
+      setActiveTab('inspector');
+      setActiveStep(null);
+      setShowReplanInput(false);
+    }
+  }, [tripIdParam]);
+
   // Scroll to bottom whenever messages update
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -368,7 +386,11 @@ export default function ChatPage() {
                   </h4>
                   <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
                     <p className="text-slate-300 font-medium">
-                      ⛅ **Conditions**: {context.weather.forecast || 'Sunny Skies'} {context.weather.average_temp_c ? `(Avg Temp: ${context.weather.average_temp_c}°C)` : ''}
+                      ⛅ **Conditions**: {
+                        Array.isArray(context.weather.forecast)
+                          ? context.weather.forecast.map((f: any) => f.condition || 'Clear').filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ')
+                          : (typeof context.weather.forecast === 'string' ? context.weather.forecast : 'Sunny Skies')
+                      } {context.weather.average_temp_c ? `(Avg Temp: ${context.weather.average_temp_c}°C)` : ''}
                     </p>
                     {context.weather.reasoning && (
                       <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
