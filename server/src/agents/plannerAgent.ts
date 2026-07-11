@@ -137,9 +137,9 @@ ${recentHistory || '(No history yet)'}
 Current trip variables: ${JSON.stringify(updatedContext.input)}
 
 Delegation Guidelines:
-1. If any critical variables (destination, start_date, end_date, budget_inr, travelers) are missing or 0, you MUST delegate to "validate_trip_inputs".
+1. If any critical variables (destination, origin, start_date, end_date, budget_inr, travelers) are missing or 0, you MUST delegate to "validate_trip_inputs".
 2. If destination is empty/missing, you can call "recommend_destination".
-3. If all trip parameters are present and complete, delegate to "orchestrate_and_generate_trip_plan" to build the travel itinerary.
+3. If all trip parameters (destination, origin, start_date, end_date, budget_inr, travelers) are present and complete, delegate to "orchestrate_and_generate_trip_plan" to build the travel itinerary.
 
 You must invoke exactly one tool.`;
 
@@ -155,7 +155,7 @@ You must invoke exactly one tool.`;
 
   const validateTripInputsTool = tool(async () => {}, {
     name: 'validate_trip_inputs',
-    description: 'Analyzes inputs, identifies missing slots, and generates helpful questions for missing dates/budget/travelers.',
+    description: 'Analyzes inputs, identifies missing slots, and generates helpful questions for missing origin/dates/budget/travelers.',
     schema: supervisorArgsSchema,
   });
 
@@ -189,6 +189,7 @@ You must invoke exactly one tool.`;
   // This prevents LLM tool-calling hallucinations from crashing the downstream MCP APIs.
   const fieldsToCheck = [
     updatedContext.input.destination,
+    updatedContext.input.origin,
     updatedContext.input.start_date,
     updatedContext.input.end_date,
     updatedContext.input.budget_inr,
