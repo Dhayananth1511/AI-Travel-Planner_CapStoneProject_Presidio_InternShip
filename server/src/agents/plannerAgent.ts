@@ -87,7 +87,8 @@ Crucial Rules:
 1. Identify if a location mentioned is the "origin" (departure city) or the "destination". Use the recent chat history to determine this (e.g., if the assistant asked "What is your departure city?" and the user replies "Coimbatore", then "Coimbatore" is the "origin", NOT the "destination"). Do NOT overwrite the existing destination with the origin.
 2. If the user mentions a relative date like "15th july", format it as "${currentYear}-07-15" using the Reference Year ${currentYear}.
 3. If you can determine the trip duration (e.g., "5-day trip") and have the start_date (e.g., "${currentYear}-07-15"), please calculate and populate the end_date accordingly (e.g., 5 days from July 15 is "${currentYear}-07-20").
-4. Return ONLY valid JSON with this exact structure (leave fields empty string or 0 if missing):
+4. If the user asks to adjust the dates, shorten the trip, or reduce the duration (e.g. "Reduce duration of trip by 1 or 2 days" or "shorten dates"), you must compute a new end_date by subtracting the specified number of days from the current end_date (for example, if current end_date is "2026-07-23" and user requests to reduce by 1 day, you must output "2026-07-22").
+5. Return ONLY valid JSON with this exact structure (leave fields empty string or 0 if missing):
 {
   "destination": "string or empty",
   "origin": "string or empty",  

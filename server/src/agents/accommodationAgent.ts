@@ -15,8 +15,8 @@ const llm = new ChatGroq({
 });
 
 export const accommodationTool = tool(
-  async ({ destination, check_in, check_out, travelers }) => {
-    const cacheKey = `hotels:${destination}:${check_in}:${check_out}:${travelers}`;
+  async ({ destination, check_in, check_out, travelers, tier }) => {
+    const cacheKey = `hotels:${destination}:${check_in}:${check_out}:${travelers}:${tier || 'default'}`;
 
     try {
       const cached = await redis.get(cacheKey);
@@ -47,6 +47,36 @@ Briefly explain if the hotels are suitable, what amenities or lodging tiers are 
       reasoning = 'Lodgings are chosen near primary destination routes.';
     }
 
+    // Sort hotels by price to select the appropriate tier
+    const hotelsList = [...(data.hotels || [])];
+    if (hotelsList.length > 0) {
+      // Sort ascending by price
+      hotelsList.sort((a, b) => a.price_per_night_inr - b.price_per_night_inr);
+      
+      let selectedHotel = hotelsList[Math.floor(hotelsList.length / 2)]; // default to mid-range
+      if (tier === 'budget') {
+        selectedHotel = hotelsList[0]; // cheapest
+      } else if (tier === 'luxury') {
+        selectedHotel = hotelsList[hotelsList.length - 1]; // most expensive
+      } else if (tier === 'mid-range') {
+        selectedHotel = hotelsList[Math.floor(hotelsList.length / 2)];
+      } else {
+        // Default to first hotel returned originally by searchHotels
+        const defaultRec = data.hotels.find((h: any) => h.name === data.recommended);
+        if (defaultRec) selectedHotel = defaultRec;
+      }
+
+      // Re-order data.hotels so selectedHotel is at index 0 for the budgetAgent
+      const originalIdx = data.hotels.findIndex((h: any) => h.name === selectedHotel.name);
+      if (originalIdx > -1) {
+        const [removed] = data.hotels.splice(originalIdx, 1);
+        data.hotels.unshift(removed);
+      }
+
+      data.recommended = selectedHotel.name;
+      data.price_per_night = selectedHotel.price_per_night_inr;
+    }
+
     const finalResult = {
       ...data,
       reasoning,
@@ -69,6 +99,7 @@ Briefly explain if the hotels are suitable, what amenities or lodging tiers are 
       check_in: z.string().describe('Check-in travel date (YYYY-MM-DD)'),
       check_out: z.string().describe('Check-out travel date (YYYY-MM-DD)'),
       travelers: z.number().describe('Number of guests/travelers'),
+      tier: z.enum(['luxury', 'mid-range', 'budget']).optional().describe('Hotel budget tier. Choose budget if user requested cheaper hotels or budget accommodation.')
     }),
   }
 );

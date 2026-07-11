@@ -45,9 +45,13 @@ Rules:
    - fetch_accommodation (requires destination, check_in, check_out, travelers)
    - fetch_activities (requires destination, interests, days)
 2. If this is a modification (re-planning) request, call ONLY the tool(s) specific to the user's requirements:
-   - "change hotel" or "find different lodging" -> call ONLY fetch_accommodation
+   - "change hotel" or "find different lodging" or choosing a cheaper hotel tier -> call ONLY fetch_accommodation
    - "add food spots" or "new interests" -> call ONLY fetch_activities
    - "change dates" -> dates impact transit, accommodation, and weather, so call fetch_weather, fetch_transport, and fetch_accommodation.
+3. For fetch_accommodation, you must pass the optional "tier" parameter based on the user's details:
+   - If user asks to choose a cheaper hotel tier, save money on lodging, or requests budget/cheap options, pass tier="budget".
+   - If user requests luxury, high-end, premium, or expensive options, pass tier="luxury".
+   - If user requests normal, mid-range, average, or moderate options, pass tier="mid-range".
 Ensure you populate tool arguments using the current context: destination="${input.destination || ''}", origin="${input.origin || ''}", start_date="${input.start_date || ''}", end_date="${input.end_date || ''}", travelers=${input.travelers || 0}, days=${days}, interests=${JSON.stringify(input.interests || [])}.`;
 
   const response = await modelWithTools.invoke([
