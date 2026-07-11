@@ -75,7 +75,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/health/db', async (_req, res) => {
-  const mongoose = await import('mongoose');
+  const mongoose = (await import('mongoose')).default;
   const isHealthy = mongoose.connection.readyState === 1;
   res.status(isHealthy ? 200 : 503).json({
     success: isHealthy,

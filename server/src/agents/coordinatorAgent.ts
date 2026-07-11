@@ -12,13 +12,13 @@ import logger from '../utils/logger';
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
-  model: 'llama3-70b-8192',
+  model: 'llama-3.3-70b-versatile',
   temperature: 0.5,
 });
 
 const routerLlm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
-  model: 'llama3-8b-8192', // Fast model used for dynamic tool routing
+  model: 'llama-3.1-8b-instant', // Fast model used for dynamic tool routing
   temperature: 0.1,
 });
 

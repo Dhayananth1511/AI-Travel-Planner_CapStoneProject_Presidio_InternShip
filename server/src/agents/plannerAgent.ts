@@ -4,6 +4,8 @@
 
 import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
 import { runMissingInfoAgent } from './missingInfoAgent';
 import { runDestinationRecAgent } from './destinationRecAgent';
 import { runParallelAgents, synthesizeTripPlan } from './coordinatorAgent';
@@ -13,7 +15,7 @@ import logger from '../utils/logger';
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
-  model: 'llama3-8b-8192', // Fast model for slots and supervisor routing
+  model: 'llama-3.1-8b-instant', // Fast model for slots and supervisor routing
   temperature: 0.1,
 });
 
@@ -113,19 +115,38 @@ Delegation Guidelines:
 
 You must invoke exactly one tool.`;
 
+  const supervisorArgsSchema = z.object({
+    destination: z.string().optional().nullable(),
+    origin: z.string().optional().nullable(),
+    start_date: z.string().optional().nullable(),
+    end_date: z.string().optional().nullable(),
+    travelers: z.number().optional().nullable(),
+    budget_inr: z.number().optional().nullable(),
+    interests: z.array(z.string()).optional().nullable(),
+  });
+
+  const validateTripInputsTool = tool(async () => {}, {
+    name: 'validate_trip_inputs',
+    description: 'Analyzes inputs, identifies missing slots, and generates helpful questions for missing dates/budget/travelers.',
+    schema: supervisorArgsSchema,
+  });
+
+  const recommendDestinationTool = tool(async () => {}, {
+    name: 'recommend_destination',
+    description: 'Triggers when no destination is chosen, presenting selection lists to the user.',
+    schema: supervisorArgsSchema,
+  });
+
+  const orchestrateAndGenerateTripPlanTool = tool(async () => {}, {
+    name: 'orchestrate_and_generate_trip_plan',
+    description: 'Triggers when all parameters are ready, coordinating concurrent API requests, safety checks, and printing the itinerary.',
+    schema: supervisorArgsSchema,
+  });
+
   const supervisorWithTools = llm.bindTools([
-    {
-      name: 'validate_trip_inputs',
-      description: 'Analyzes inputs, identifies missing slots, and generates helpful questions for missing dates/budget/travelers.'
-    },
-    {
-      name: 'recommend_destination',
-      description: 'Triggers when no destination is chosen, presenting selection lists to the user.'
-    },
-    {
-      name: 'orchestrate_and_generate_trip_plan',
-      description: 'Triggers when all parameters are ready, coordinating concurrent API requests, safety checks, and printing the itinerary.'
-    }
+    validateTripInputsTool,
+    recommendDestinationTool,
+    orchestrateAndGenerateTripPlanTool,
   ]);
 
   const supervisorResponse = await supervisorWithTools.invoke([

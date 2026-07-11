@@ -64,3 +64,5 @@ docker-compose.override.yml
 # Implementation plans
 implementation_plan.md
 implementation_plan1.md
+
+walkthrough.md
