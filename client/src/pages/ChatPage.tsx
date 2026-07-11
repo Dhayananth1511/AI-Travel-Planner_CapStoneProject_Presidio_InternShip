@@ -492,13 +492,17 @@ export default function ChatPage() {
               {context.weather && (
                 <div className="premium-card rounded-xl p-4 space-y-2">
                   <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <Sun className="h-4.5 w-4.5" /> Meto Weather Feed
+                    <Sun className="h-4.5 w-4.5" /> Climate Specialist Agent
                   </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs">
-                    <p className="text-slate-350 font-medium">
-                      ⛅ **Conditions**: {context.weather.forecast || 'Sunny Skies'}
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
+                    <p className="text-slate-300 font-medium">
+                      ⛅ **Conditions**: {context.weather.forecast || 'Sunny Skies'} (Avg Temp: {context.weather.average_temp_c || '24°C'})
                     </p>
-                    <p className="text-slate-500 mt-1">Average Temp: {context.weather.average_temp_c || '24°C'}</p>
+                    {context.weather.reasoning && (
+                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        🧠 **Weather Analysis**: {context.weather.reasoning}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -506,11 +510,16 @@ export default function ChatPage() {
               {context.accommodation && (
                 <div className="premium-card rounded-xl p-4 space-y-2">
                   <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <Building2 className="h-4.5 w-4.5" /> Places Accommodation
+                    <Building2 className="h-4.5 w-4.5" /> Lodging Specialist Agent
                   </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs">
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
                     <p className="font-semibold text-slate-200">{context.accommodation.recommended || 'Premium Resort Stay'}</p>
-                    <p className="text-slate-400 mt-1">Estimated Cost: ₹{context.accommodation.cost_per_night?.toLocaleString() || 'N/A'} / night</p>
+                    <p className="text-slate-405">Estimated Cost: ₹{context.accommodation.cost_per_night?.toLocaleString() || 'N/A'} / night</p>
+                    {context.accommodation.reasoning && (
+                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        🧠 **Lodging Analysis**: {context.accommodation.reasoning}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -518,11 +527,32 @@ export default function ChatPage() {
               {context.transport && (
                 <div className="premium-card rounded-xl p-4 space-y-2">
                   <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <Car className="h-4.5 w-4.5" /> Amadeus Transport
+                    <Car className="h-4.5 w-4.5" /> Transit Specialist Agent
                   </h4>
-                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1">
-                    <p className="text-slate-200">🛫 **Best Route**: {context.transport.best_option || 'N/A'}</p>
-                    <p className="text-emerald-450 font-semibold">Price: ₹{context.transport.price?.toLocaleString() || 'N/A'}</p>
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
+                    <p className="text-slate-200">🛫 **Best Option**: {context.transport.best_option || 'N/A'}</p>
+                    <p className="text-emerald-400 font-semibold">Total Price: ₹{context.transport.price?.toLocaleString() || 'N/A'}</p>
+                    {context.transport.reasoning && (
+                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        🧠 **Transit Analysis**: {context.transport.reasoning}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {context.activities && (
+                <div className="premium-card rounded-xl p-4 space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <MapPin className="h-4.5 w-4.5" /> Sightseeing Specialist Agent
+                  </h4>
+                  <div className="bg-indigo-950/20 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
+                    <p className="text-slate-300 font-medium">🗺️ **Matched Interests**: {(context.input.interests || []).join(', ') || 'General Sightseeing'}</p>
+                    {context.activities.reasoning && (
+                      <p className="text-indigo-300 mt-2 bg-indigo-950/45 p-2 rounded border border-indigo-900/40 text-[11px] leading-relaxed">
+                        🧠 **Activity Analysis**: {context.activities.reasoning}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

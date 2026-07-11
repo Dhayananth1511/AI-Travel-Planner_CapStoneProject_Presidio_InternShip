@@ -2,9 +2,17 @@
 
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { ChatGroq } from '@langchain/groq';
+import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
 import { getPlacesNearby } from '../mcp-servers/mapsMCP';
 import logger from '../utils/logger';
+
+const llm = new ChatGroq({
+  apiKey: process.env.GROQ_API_KEY,
+  model: 'llama-3.1-8b-instant',
+  temperature: 0.3,
+});
 
 export const activityTool = tool(
   async ({ destination, interests, days }) => {
@@ -23,13 +31,35 @@ export const activityTool = tool(
     logger.debug('Cache MISS — activities tool fetching from MCP', { cacheKey });
     const data = await getPlacesNearby(destination, interests, days);
 
+    // Standalone LLM Reasoning Phase
+    let reasoning = '';
     try {
-      await redis.setex(cacheKey, 86400, JSON.stringify(data));
+      const systemPrompt = `You are VoyageFlow's Local Sightseeing & Activities Specialist Agent. 
+Analyze the suggested places in ${destination} for a ${days}-day trip matching traveler interests: ${interests.join(', ')}.
+Briefly explain if these matches fit traveler preferences, and highlight 2-3 key landmark recommendations in 2-3 sentences. Keep it short.`;
+      const llmRes = await llm.invoke([
+        new SystemMessage(systemPrompt),
+        new HumanMessage(JSON.stringify(data)),
+      ]);
+      reasoning = llmRes.content.toString();
+    } catch (err) {
+      logger.error('Activity Agent reasoning analysis failed', err);
+      reasoning = 'Local sight-seeing options align with generic adventure preferences.';
+    }
+
+    const finalResult = {
+      ...data,
+      reasoning,
+    };
+
+    const finalResultString = JSON.stringify(finalResult);
+    try {
+      await redis.setex(cacheKey, 86450, finalResultString);
     } catch {
       logger.warn('Could not write activities to cache');
     }
 
-    return JSON.stringify(data);
+    return finalResultString;
   },
   {
     name: 'fetch_activities',
