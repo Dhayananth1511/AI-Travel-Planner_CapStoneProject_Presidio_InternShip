@@ -678,8 +678,8 @@ export default function AdminDashboard() {
               </div>
 
               {/* Right Side: Full generated markdown plan */}
-              <div className="md:col-span-2 space-y-4">
-                <div className="bg-slate-950/45 p-5 border border-slate-800 rounded-xl space-y-4 max-h-[55vh] overflow-y-auto">
+              <div className="md:col-span-2 flex flex-col">
+                <div className="bg-slate-950/45 p-5 border border-slate-800 rounded-xl space-y-4 overflow-y-auto flex-1 md:min-h-[450px]">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400">
                     Formatted Travel Itinerary
                   </h3>
