@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Mail, Lock, Plane, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Mail, Lock, Plane, AlertCircle } from 'lucide-react';
 import { loginSchema } from '../schemas/authSchemas';
 import type { LoginFormData } from '../schemas/authSchemas';
 import { useAuthStore } from '../store/authStore';
@@ -20,7 +20,6 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
     setError,
   } = useForm<LoginFormData>({
@@ -36,16 +35,7 @@ export default function LoginPage() {
     }
   }, [roleParam]);
 
-  // Autofill credentials when selected role changes (helpful for test logins)
-  useEffect(() => {
-    if (selectedRole === 'admin') {
-      setValue('email', 'admin@voyage.com');
-      setValue('password', 'Password123');
-    } else {
-      setValue('email', 'traveler@voyage.com');
-      setValue('password', 'Password123');
-    }
-  }, [selectedRole, setValue]);
+
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -165,12 +155,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div className="rounded-lg border border-indigo-500/10 bg-indigo-500/5 p-3 text-[11px] text-indigo-300 flex items-center gap-1.5 mt-2">
-              <ShieldAlert className="h-4 w-4 shrink-0 text-indigo-400" />
-              <span>
-                Prefilled test credentials loaded for {selectedRole === 'admin' ? 'Admin' : 'Traveler'} workspace!
-              </span>
-            </div>
+
 
             <div className="pt-2">
               <button
