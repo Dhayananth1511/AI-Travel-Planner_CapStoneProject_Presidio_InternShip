@@ -28,7 +28,7 @@ import {
   ChevronUp,
   Trash2,
   Calendar,
-  Plane,
+  Compass,
   Download,
 } from 'lucide-react';
 import api from '../lib/axios';
@@ -65,7 +65,7 @@ export default function ChatPage() {
     {
       role: 'assistant',
       content:
-        "Hi! I'm VoyageFlow, your Lead Travel Supervisor Agent. 🗺️\n\nWhere would you like to travel next? Let me know the destination, dates, budget, or number of travelers to begin!",
+        "Hi! I'm TripPlanner, your Lead Travel Supervisor Agent. 🗺️\n\nWhere would you like to travel next? Let me know the destination, dates, budget, or number of travelers to begin!",
     },
   ]);
   const [tripId, setTripId] = useState<string | undefined>(tripIdParam || undefined);
@@ -115,7 +115,7 @@ export default function ChatPage() {
         {
           role: 'assistant',
           content:
-            "Hi! I'm VoyageFlow, your Lead Travel Supervisor Agent. 🗺️\n\nWhere would you like to travel next? Let me know the destination, dates, budget, or number of travelers to begin!",
+            "Hi! I'm TripPlanner, your Lead Travel Supervisor Agent. 🗺️\n\nWhere would you like to travel next? Let me know the destination, dates, budget, or number of travelers to begin!",
         },
       ]);
       setActiveTab('inspector');
@@ -342,7 +342,7 @@ export default function ChatPage() {
     if (!context) return;
     
     let text = `=====================================================\n`;
-    text += `          VOYAGEFLOW AI TRAVEL PLAN ITINERARY\n`;
+    text += `          TRIPPLANNER AI TRAVEL PLAN ITINERARY\n`;
     text += `=====================================================\n\n`;
     text += `📍 Destination: ${context.input.destination || 'N/A'}\n`;
     text += `🛫 Origin: ${context.input.origin || 'N/A'}\n`;
@@ -389,7 +389,7 @@ export default function ChatPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VoyageFlow_Itinerary_${context.input.destination || 'Trip'}.txt`;
+    link.download = `TripPlanner_Itinerary_${context.input.destination || 'Trip'}.txt`;
     link.click();
     URL.revokeObjectURL(url);
     toast.success('Itinerary downloaded successfully! 📄');
@@ -432,7 +432,7 @@ export default function ChatPage() {
             Back to Trips
           </Link>
           <span className="text-xs font-bold text-slate-400 bg-slate-900/60 px-3 py-1 border border-slate-800 rounded-lg">
-            ✈️ VoyageFlow AI Swarm
+            🧭 TripPlanner AI Swarm
           </span>
         </div>
 
@@ -442,7 +442,7 @@ export default function ChatPage() {
             {/* Logo and Intro title */}
             <div className="text-center space-y-3">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/5">
-                <Plane className="h-7 w-7 text-primary rotate-45" />
+                <Compass className="h-7 w-7 text-primary" />
               </div>
               <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white glow-text">
                 Design Your Next Journey

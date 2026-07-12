@@ -36,7 +36,7 @@ export const weatherTool = tool(
     // Standalone LLM Reasoning Phase
     let reasoning = '';
     try {
-      const systemPrompt = `You are VoyageFlow's Climate Specialist Agent. 
+      const systemPrompt = `You are TripPlanner's Climate Specialist Agent. 
 Analyze the following raw weather forecast data for ${destination} from ${start_date} to ${end_date}.
 Briefly explain if the conditions are favorable for travel, note the average temperature, and give minor clothing/packing advice in 2-3 friendly sentences. Keep it short.`;
       const llmRes = await withRetry(() => llm.invoke([

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { Plus, Plane, Calendar, Users, IndianRupee, Eye, ArrowRight, Sparkles, Trash2, CalendarRange, AlertTriangle } from 'lucide-react';
+import { Plus, Compass, Calendar, Users, IndianRupee, Eye, ArrowRight, Sparkles, Trash2, CalendarRange, AlertTriangle } from 'lucide-react';
 import api from '../lib/axios';
 
 interface TripSummary {
@@ -182,7 +182,7 @@ export default function MyTripsPage() {
 
       {isLoading ? (
         <div className="flex justify-center items-center py-20">
-          <Plane className="h-10 w-10 text-primary rotate-45 animate-spin" />
+          <Compass className="h-10 w-10 text-primary animate-spin" />
         </div>
       ) : filteredTrips.length === 0 ? (
         <div className="premium-card rounded-2xl p-12 text-center max-w-xl mx-auto flex flex-col items-center">

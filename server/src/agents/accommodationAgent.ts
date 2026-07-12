@@ -35,7 +35,7 @@ export const accommodationTool = tool(
     // Standalone LLM Reasoning Phase
     let reasoning = '';
     try {
-      const systemPrompt = `You are VoyageFlow's Lodging & Accommodation Specialist Agent. 
+      const systemPrompt = `You are TripPlanner's Lodging & Accommodation Specialist Agent. 
 Analyze the accommodation choices in ${destination} checking in on ${check_in} and out on ${check_out} for ${travelers} guests.
 Briefly explain if the hotels are suitable, what amenities or lodging tiers are interesting, and safety/convenience ratings in 2-3 sentences. Keep it short.`;
       const llmRes = await withRetry(() => llm.invoke([

@@ -25,11 +25,11 @@ const connectDB = async (): Promise<void> => {
     if (adminCount === 0) {
       await User.create({
         name: 'System Admin',
-        email: 'admin@voyageflow.com',
+        email: 'admin@tripplanner.com',
         password: 'adminpassword123', // Automatically hashed by User model pre-save middleware
         role: 'admin',
       });
-      logger.info('Default Admin user successfully seeded: admin@voyageflow.com / adminpassword123');
+      logger.info('Default Admin user successfully seeded: admin@tripplanner.com / adminpassword123');
     }
   } catch (error: any) {
     logger.error(`Database Connection Error: ${error.message}`);

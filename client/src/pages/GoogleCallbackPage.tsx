@@ -41,7 +41,7 @@ export default function GoogleCallbackPage() {
           Completing your login...
         </h2>
         <p className="text-sm text-slate-400">
-          Syncing secure sessions across VoyageFlow swarm clusters. Please wait.
+          Syncing secure sessions across TripPlanner swarm clusters. Please wait.
         </p>
       </div>
     </div>

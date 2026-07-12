@@ -6,7 +6,7 @@ import {
   Calendar,
   CalendarCheck,
   ArrowRight,
-  Plane,
+  Compass,
   Shield,
   Sparkles,
   ChevronRight,
@@ -51,7 +51,7 @@ export default function HomePage() {
             <span className="text-slate-200">Wanna go to Ooty next week for 3 days. Budget is 20,000 INR. 2 travelers.</span>
           </div>
           <div className="flex gap-2 border-t border-slate-950 pt-2 text-[11px]">
-            <span className="text-indigo-400 font-bold">VoyageFlow AI:</span>
+            <span className="text-indigo-400 font-bold">TripPlanner AI:</span>
             <span className="text-slate-400">Understood! Extracting details: Destination: Ooty, Budget: ₹20,000, Travelers: 2, Duration: 3 days. Running options search...</span>
           </div>
         </div>
@@ -124,7 +124,7 @@ export default function HomePage() {
       title: 'Confirm & Auto-Sync Calendar',
       shortDesc: 'Lock in credentials, get booking codes, and write events directly.',
       detailedDesc:
-        'Once you click "Confirm Plan", VoyageFlow registers your hotel reservation codes, transit keys, and automatically syncs the entire itinerary directly to your Google Calendar so it is ready on your phone.',
+        'Once you click "Confirm Plan", TripPlanner registers your hotel reservation codes, transit keys, and automatically syncs the entire itinerary directly to your Google Calendar so it is ready on your phone.',
       icon: CalendarCheck,
       color: 'from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400',
       screenshotMock: (
@@ -183,13 +183,13 @@ export default function HomePage() {
               <div className="premium-card rounded-2xl p-5 border border-slate-800/80 hover:border-primary/45 transition-all duration-300 group flex flex-col justify-between shadow-lg hover:shadow-primary/5 bg-slate-900/40 backdrop-blur-sm">
                 <div>
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary mb-4 group-hover:scale-105 transition-transform duration-300">
-                    <Plane className="h-5 w-5" />
+                    <Compass className="h-5 w-5" />
                   </div>
                   <h3 className="text-base font-bold text-white mb-1.5">
                     Plan a New Trip
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                    Chat with VoyageFlow assistant, review day schedules, inspect hotel prices, and auto-sync itineraries.
+                    Chat with TripPlanner assistant, review day schedules, inspect hotel prices, and auto-sync itineraries.
                   </p>
                 </div>
                 <Link
@@ -227,7 +227,7 @@ export default function HomePage() {
           <div className="lg:col-span-5 flex flex-col justify-center items-center">
             <div className="w-full max-w-md premium-card rounded-3xl p-6 relative overflow-hidden shadow-2xl space-y-4 bg-slate-900/30 border border-slate-850 backdrop-blur-md">
               <span className="text-[10px] font-bold text-primary tracking-widest uppercase block border-b border-card-border/60 pb-3 text-center">
-                💻 HOW VOYAGEFLOW PLANNER WORKS
+                💻 HOW TRIPPLANNER PLANNER WORKS
               </span>
 
               {/* Live Preview Display Pane */}
@@ -254,7 +254,7 @@ export default function HomePage() {
           <div className="text-center max-w-xl mx-auto">
             <h2 className="text-2xl font-bold text-white">How It Works in 4 Simple Steps</h2>
             <p className="text-xs text-slate-455 mt-1.5 leading-relaxed">
-              No complex planning sheets or endless browser tabs. VoyageFlow structures everything in simple travel phases.
+              No complex planning sheets or endless browser tabs. TripPlanner structures everything in simple travel phases.
             </p>
           </div>
 

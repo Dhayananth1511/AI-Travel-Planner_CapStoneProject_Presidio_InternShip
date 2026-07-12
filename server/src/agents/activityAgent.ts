@@ -35,7 +35,7 @@ export const activityTool = tool(
     // Standalone LLM Reasoning Phase
     let reasoning = '';
     try {
-      const systemPrompt = `You are VoyageFlow's Local Sightseeing & Activities Specialist Agent. 
+      const systemPrompt = `You are TripPlanner's Local Sightseeing & Activities Specialist Agent. 
 Analyze the suggested places in ${destination} for a ${days}-day trip matching traveler interests: ${interests.join(', ')}.
 Briefly explain if these matches fit traveler preferences, and highlight 2-3 key landmark recommendations in 2-3 sentences. Keep it short.`;
       const llmRes = await withRetry(() => llm.invoke([

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Mail, Lock, User, Plane, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Compass, AlertCircle } from 'lucide-react';
 import { registerSchema } from '../schemas/authSchemas';
 import type { RegisterFormData } from '../schemas/authSchemas';
 import { useAuthStore } from '../store/authStore';
@@ -77,7 +77,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/5">
-            <Plane className="h-8 w-8 text-primary rotate-45" />
+            <Compass className="h-8 w-8 text-primary" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white glow-text">
             Start Your Journey

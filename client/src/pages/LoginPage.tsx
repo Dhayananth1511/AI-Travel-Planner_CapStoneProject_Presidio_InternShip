@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import { Mail, Lock, Plane, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Compass, AlertCircle } from 'lucide-react';
 import { loginSchema } from '../schemas/authSchemas';
 import type { LoginFormData } from '../schemas/authSchemas';
 import { useAuthStore } from '../store/authStore';
@@ -90,10 +90,10 @@ export default function LoginPage() {
         {/* Banner header logo */}
         <div className="text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/5">
-            <Plane className="h-8 w-8 text-primary rotate-45" />
+            <Compass className="h-8 w-8 text-primary" />
           </div>
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white glow-text">
-            Welcome to VoyageFlow AI
+            Welcome to TripPlanner AI
           </h2>
           <p className="mt-1.5 text-xs text-slate-400">
             Sign in to start mapping your next journey

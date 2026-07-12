@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { Plane, LogOut, User, LayoutDashboard, BarChart3 } from 'lucide-react';
+import { Compass, LogOut, User, LayoutDashboard, BarChart3 } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
@@ -19,9 +19,9 @@ export default function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Plane className="h-6 w-6 text-primary rotate-45 animate-pulse" />
+            <Compass className="h-6 w-6 text-primary animate-pulse" />
             <Link to="/" className="text-xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent hover:opacity-95 transition">
-              VoyageFlow AI
+              TripPlanner AI
             </Link>
           </div>
 
@@ -49,7 +49,7 @@ export default function Navbar() {
                           : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <Plane className="h-4 w-4" />
+                      <Compass className="h-4 w-4" />
                       Plan Trip
                     </Link>
                   </>

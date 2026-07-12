@@ -35,7 +35,7 @@ export const transportTool = tool(
     // Standalone LLM Reasoning Phase
     let reasoning = '';
     try {
-      const systemPrompt = `You are VoyageFlow's Transport Routing Specialist Agent. 
+      const systemPrompt = `You are TripPlanner's Transport Routing Specialist Agent. 
 Analyze the travel transit options from ${origin} to ${destination} for ${travelers} travelers on ${travel_date}.
 Briefly explain if the pricing is reasonable, which option is fastest/best, and any transit tips in 2-3 sentences. Keep it short.`;
       const llmRes = await withRetry(() => llm.invoke([
