@@ -113,7 +113,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     const emailNormalization = email.toLowerCase().trim();
 
     // Must explicitly request '+password' because our schema default-excludes it
@@ -122,6 +122,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     if (!user || !(await user.comparePassword(password))) {
       // Return generic message (don't say if email or password was wrong to prevent brute-forcing)
       res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return;
+    }
+
+    if (role && user.role !== role) {
+      const targetRoleName = role === 'admin' ? 'Admin' : 'Traveler';
+      const actualRoleName = user.role === 'admin' ? 'Admin' : 'Traveler';
+      res.status(401).json({
+        success: false,
+        message: `This account does not have access for ${targetRoleName} login. Please use the ${actualRoleName} login.`
+      });
       return;
     }
 
@@ -326,6 +336,12 @@ export const googleOAuthCallback = async (req: Request, res: Response): Promise<
       let user = await User.findOne({
         $or: [{ googleId: profile.id }, { email: profile.email.toLowerCase() }],
       });
+
+      if (user && user.role === 'admin') {
+        logger.warn('Admin attempted to log in via Google OAuth', { email: user.email });
+        res.redirect(`${clientUrl}/login?google_auth=error&message=Admins+must+login+manually+using+manual+login.`);
+        return;
+      }
 
       if (!user) {
         // First-time Google Sign-In: create a new user account
