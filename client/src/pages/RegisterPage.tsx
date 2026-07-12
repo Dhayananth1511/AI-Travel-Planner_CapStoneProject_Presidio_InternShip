@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
@@ -5,7 +6,6 @@ import { Mail, Lock, User, Plane, AlertCircle } from 'lucide-react';
 import { registerSchema } from '../schemas/authSchemas';
 import type { RegisterFormData } from '../schemas/authSchemas';
 import { useAuthStore } from '../store/authStore';
-import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../lib/axios';
 
@@ -23,7 +23,7 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
   });
 
-  // Handle Google auth redirects
+  // Handle Google OAuth callback error display and clearing
   useEffect(() => {
     const googleAuth = searchParams.get('google_auth');
     const msg = searchParams.get('message');
@@ -33,12 +33,7 @@ export default function RegisterPage() {
       } else if (googleAuth === 'error') {
         toast.error(msg || 'Google Sign-In failed. Please try again.');
       }
-
-      // Clear params to avoid double toasts inside StrictMode or on page refresh
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('google_auth');
-      newParams.delete('message');
-      setSearchParams(newParams, { replace: true });
+      setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 

@@ -43,12 +43,7 @@ export default function LoginPage() {
       } else if (googleAuth === 'error') {
         toast.error(msg || 'Google Sign-In failed. Please try again.');
       }
-      
-      // Clean up parameters to prevent double toast on StrictMode/refresh
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('google_auth');
-      newParams.delete('message');
-      setSearchParams(newParams, { replace: true });
+      setSearchParams({}, { replace: true });
     }
   }, [roleParam, searchParams, setSearchParams]);
 
