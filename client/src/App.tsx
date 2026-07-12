@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import axios from 'axios';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
@@ -23,12 +24,32 @@ const queryClient = new QueryClient({
 
 export default function App() {
   const theme = useThemeStore((s) => s.theme);
-  const { restoreSession, isInitializing } = useAuthStore();
+  const { setToken, logout, user } = useAuthStore();
+  const [authReady, setAuthReady] = useState(false);
 
-  // On every app boot / page refresh, silently restore session via Zustand
+  // On every app boot / page refresh, silently call /auth/refresh to restore
+  // the in-memory accessToken from the httpOnly refresh cookie.
+  // This prevents logout-on-refresh while keeping the token out of localStorage.
   useEffect(() => {
+    const restoreSession = async () => {
+      if (user) {
+        // User profile exists in sessionStorage — try to get a fresh access token
+        try {
+          const { data } = await axios.post(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
+            {},
+            { withCredentials: true }
+          );
+          setToken(data.accessToken);
+        } catch {
+          // Refresh token expired or invalid — force logout cleanly
+          logout();
+        }
+      }
+      setAuthReady(true);
+    };
     restoreSession();
-  }, [restoreSession]);
+  }, []);
 
   // Ensure the HTML class is always in sync with the persisted store value
   useEffect(() => {
@@ -38,7 +59,7 @@ export default function App() {
 
   // Hold rendering until the session restore attempt has completed
   // to prevent a flash-redirect to /login before token is restored
-  if (isInitializing) return null;
+  if (!authReady) return null;
 
   const isDark = theme === 'dark';
 
