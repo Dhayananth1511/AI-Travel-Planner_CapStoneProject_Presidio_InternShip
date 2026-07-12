@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { Plus, Compass, Calendar, Users, IndianRupee, Eye, ArrowRight, Sparkles, Trash2, CalendarRange, AlertTriangle } from 'lucide-react';
 import api from '../lib/axios';
+import { useThemeStore } from '../store/themeStore';
 
 interface TripSummary {
   sessionId: string;
@@ -20,6 +21,8 @@ interface TripSummary {
 export default function MyTripsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<'ALL' | 'ACTIVE' | 'DRAFTS' | 'CANCELLED'>('ALL');
   const [tripToCancel, setTripToCancel] = useState<{ id: string; name: string } | null>(null);
 
@@ -115,11 +118,11 @@ export default function MyTripsPage() {
   }) || [];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+    <div className={`mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 min-h-[calc(100vh-4rem)] transition-colors duration-300 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
       {/* HEADER ROW */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white glow-text mb-1 flex items-center gap-2.5">
+          <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight glow-text mb-1 flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
             My Travel Itineraries
           </h1>
           <p className="text-slate-400 text-sm">

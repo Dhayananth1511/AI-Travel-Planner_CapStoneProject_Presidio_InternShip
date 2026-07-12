@@ -22,6 +22,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import api from '../lib/axios';
+import { useThemeStore } from '../store/themeStore';
 
 // Register ChartJS modules
 ChartJS.register(
@@ -70,6 +71,8 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const limit = 6;
   const [selectedTrip, setSelectedTrip] = useState<TripItem | null>(null);
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
 
   // React Query to fetch analytics dashboard summary data
   const { data: analytics, refetch: refetchAnalytics } = useQuery({
@@ -282,15 +285,15 @@ export default function AdminDashboard() {
   const totalPages = Math.ceil((tripsData?.total || 0) / limit);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+    <div className={`mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 min-h-[calc(100vh-4rem)] transition-colors duration-300 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white glow-text mb-1">
+          <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight glow-text mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
             System Operations Dashboard
           </h1>
           <p className="text-slate-400 text-sm">
-            Swarm lifecycle orchestrator diagnostics & payment metrics in real-time
+            Swarm lifecycle orchestrator diagnostics &amp; payment metrics in real-time
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs bg-slate-900 border border-slate-800 rounded-lg px-3.5 py-2 text-indigo-400 font-medium">

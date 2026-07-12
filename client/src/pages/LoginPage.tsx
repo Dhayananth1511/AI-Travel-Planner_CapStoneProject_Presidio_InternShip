@@ -6,16 +6,17 @@ import { Mail, Lock, Compass, AlertCircle } from 'lucide-react';
 import { loginSchema } from '../schemas/authSchemas';
 import type { LoginFormData } from '../schemas/authSchemas';
 import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../store/themeStore';
 import toast from 'react-hot-toast';
 import api from '../lib/axios';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const [searchParams, setSearchParams] = useSearchParams();
   const roleParam = searchParams.get('role');
-  
-  // Local role state selector
   const [selectedRole, setSelectedRole] = useState<'traveler' | 'admin'>('traveler');
   const lastStateRef = useRef('');
 
@@ -24,29 +25,18 @@ export default function LoginPage() {
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
+  } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
 
-  // Handle initialization and search params sync + google auth toast errors
   useEffect(() => {
-    if (roleParam === 'admin') {
-      setSelectedRole('admin');
-    } else {
-      setSelectedRole('traveler');
-    }
-
+    setSelectedRole(roleParam === 'admin' ? 'admin' : 'traveler');
     const googleAuth = searchParams.get('google_auth');
     const msg = searchParams.get('message');
     if (googleAuth) {
-      const currentStateStr = `${googleAuth}:${msg || ''}`;
-      if (lastStateRef.current !== currentStateStr) {
-        lastStateRef.current = currentStateStr;
-        if (googleAuth === 'denied') {
-          toast('Google Sign-In was cancelled.', { icon: '🔕' });
-        } else if (googleAuth === 'error') {
-          toast.error(msg || 'Google Sign-In failed. Please try again.');
-        }
+      const key = `${googleAuth}:${msg || ''}`;
+      if (lastStateRef.current !== key) {
+        lastStateRef.current = key;
+        if (googleAuth === 'denied') toast('Google Sign-In was cancelled.', { icon: '🔕' });
+        else if (googleAuth === 'error') toast.error(msg || 'Google Sign-In failed.');
         setSearchParams({}, { replace: true });
       }
     } else {
@@ -57,9 +47,7 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     try {
       const res = await api.get('/auth/google-login?mode=login');
-      if (res.data.authUrl) {
-        window.location.href = res.data.authUrl;
-      }
+      if (res.data.authUrl) window.location.href = res.data.authUrl;
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Google Sign-In is temporarily offline.');
     }
@@ -69,150 +57,145 @@ export default function LoginPage() {
     try {
       const res = await api.post('/auth/login', { ...data, role: selectedRole });
       setAuth(res.data.user, res.data.accessToken);
-      
-      // If user is admin redirect to /admin, else to /dashboard
-      if (res.data.user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err: any) {
-      setError('root', {
-        message: err.response?.data?.message || 'Invalid email or password. Please try again.',
-      });
+      setError('root', { message: err.response?.data?.message || 'Invalid email or password.' });
     }
   };
 
+  const cardClass = `premium-card rounded-2xl p-6 shadow-2xl space-y-5`;
+  const labelClass = `block text-xs font-semibold mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`;
+  const inputWrap = 'relative';
+  const iconClass = 'pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3';
+  const inputClass = `field-input`;
+  const errorClass = `mt-1.5 text-[11px] text-red-500 flex items-center gap-1`;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-dark-bg px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-6">
-        
-        {/* Banner header logo */}
+    <div className={`flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-10 sm:px-6 lg:px-8 ${isDark ? 'bg-[#090d16]' : 'bg-slate-50'}`}>
+      <div className="w-full max-w-md space-y-6 fade-in-up">
+
+        {/* Header */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/5">
-            <Compass className="h-8 w-8 text-primary" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-lg">
+            <Compass className="h-8 w-8 text-primary" aria-hidden="true" />
           </div>
-          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white glow-text">
+          <h1 className={`mt-4 text-2xl sm:text-3xl font-extrabold tracking-tight glow-text ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Welcome to TripPlanner AI
-          </h2>
-          <p className="mt-1.5 text-xs text-slate-400">
-            Sign in to start mapping your next journey
-          </p>
+          </h1>
+          <p className="mt-1.5 text-xs text-slate-400">Sign in to start mapping your next journey</p>
         </div>
 
-        {/* Unified Card Container */}
-        <div className="premium-card rounded-2xl p-6 shadow-2xl space-y-6">
-          
-          {/* Interactive Role Selection Row */}
-          <div className="flex rounded-lg bg-slate-900/60 p-1 border border-slate-800">
+        {/* Card */}
+        <div className={cardClass}>
+
+          {/* Role tabs */}
+          <div className="role-tab-bg flex rounded-lg p-1" role="tablist" aria-label="Login type">
             <button
               type="button"
+              role="tab"
+              aria-selected={selectedRole === 'traveler'}
               onClick={() => setSelectedRole('traveler')}
-              className={`flex-1 text-center py-2 text-xs font-bold uppercase tracking-wider rounded-md transition cursor-pointer select-none ${
-                selectedRole === 'traveler'
-                  ? 'bg-primary text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary ${
+                selectedRole === 'traveler' ? 'bg-primary text-white shadow-md' : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Traveler Login
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={selectedRole === 'admin'}
               onClick={() => setSelectedRole('admin')}
-              className={`flex-1 text-center py-2 text-xs font-bold uppercase tracking-wider rounded-md transition cursor-pointer select-none ${
-                selectedRole === 'admin'
-                  ? 'bg-indigo-500 text-white shadow-md focus:outline-none'
-                  : 'text-slate-400 hover:text-slate-200'
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary ${
+                selectedRole === 'admin' ? 'bg-indigo-600 text-white shadow-md' : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Admin Login
             </button>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+            {/* Email */}
             <div>
-              <label className="block text-xs font-medium text-slate-350">
-                Email Address
-              </label>
-              <div className="relative mt-1.5 rounded-md shadow-sm">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-4 w-4 text-slate-400" />
-                </div>
+              <label htmlFor="login-email" className={labelClass}>Email Address</label>
+              <div className={inputWrap}>
+                <div className={iconClass}><Mail className="h-4 w-4 text-slate-400" aria-hidden="true" /></div>
                 <input
+                  id="login-email"
                   {...register('email')}
                   type="email"
-                  className="block w-full rounded-lg border border-slate-705 bg-slate-805/50 py-2.5 pl-10 pr-3 text-xs text-slate-200 placeholder-slate-500 transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  autoComplete="email"
+                  className={inputClass}
                   placeholder="name@example.com"
+                  aria-describedby={errors.email ? 'login-email-error' : undefined}
+                  aria-invalid={!!errors.email}
                 />
               </div>
               {errors.email && (
-                <p className="mt-1.5 text-[11px] text-red-450 flex items-center gap-1">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {errors.email.message}
+                <p id="login-email-error" role="alert" className={errorClass}>
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />{errors.email.message}
                 </p>
               )}
             </div>
 
+            {/* Password */}
             <div>
-              <label className="block text-xs font-medium text-slate-350">
-                Password
-              </label>
-              <div className="relative mt-1.5 rounded-md shadow-sm">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Lock className="h-4 w-4 text-slate-400" />
-                </div>
+              <label htmlFor="login-password" className={labelClass}>Password</label>
+              <div className={inputWrap}>
+                <div className={iconClass}><Lock className="h-4 w-4 text-slate-400" aria-hidden="true" /></div>
                 <input
+                  id="login-password"
                   {...register('password')}
                   type="password"
-                  className="block w-full rounded-lg border border-slate-705 bg-slate-850/50 py-2.5 pl-10 pr-3 text-xs text-slate-205 placeholder-slate-500 transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  autoComplete="current-password"
+                  className={inputClass}
                   placeholder="••••••••"
+                  aria-describedby={errors.password ? 'login-password-error' : undefined}
+                  aria-invalid={!!errors.password}
                 />
               </div>
               {errors.password && (
-                <p className="mt-1.5 text-[11px] text-red-450 flex items-center gap-1">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {errors.password.message}
+                <p id="login-password-error" role="alert" className={errorClass}>
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />{errors.password.message}
                 </p>
               )}
             </div>
 
+            {/* Root error */}
             {errors.root && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3.5 text-xs text-red-440 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 shrink-0" />
+              <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/5 p-3.5 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{errors.root.message}</span>
               </div>
             )}
 
-
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="group relative flex w-full justify-center rounded-lg bg-primary py-3 px-4 text-xs font-bold text-white transition hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-primary/20 cursor-pointer"
-              >
-                {isSubmitting ? 'Signing in...' : 'Sign In'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex w-full justify-center rounded-lg bg-primary py-3 px-4 text-xs font-bold text-white transition hover:bg-opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-primary/20 cursor-pointer active:scale-[98%]"
+            >
+              {isSubmitting ? 'Signing in…' : 'Sign In'}
+            </button>
           </form>
 
-          {/* Google Sign-In Section */}
+          {/* Google OAuth — traveler only */}
           {selectedRole === 'traveler' && (
-            <div className="mt-4 space-y-4">
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-800"></div>
-                <span className="mx-3 flex-shrink text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Or continue with
-                </span>
-                <div className="flex-grow border-t border-slate-800"></div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 divider-line border-t" />
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Or continue with</span>
+                <div className="flex-1 divider-line border-t" />
               </div>
-
               <button
                 onClick={handleGoogleLogin}
                 type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900/40 hover:bg-slate-800/80 py-2.5 px-4 text-xs font-bold text-slate-205 transition active:scale-[98%] cursor-pointer"
+                className={`flex w-full items-center justify-center gap-2.5 rounded-lg border py-2.5 px-4 text-xs font-bold transition active:scale-[98%] cursor-pointer ${
+                  isDark ? 'border-slate-700 bg-slate-900/40 hover:bg-slate-800/80 text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm'
+                }`}
+                aria-label="Login with Google"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
@@ -220,17 +203,12 @@ export default function LoginPage() {
                 </svg>
                 Login with Google
               </button>
-            </div>
-          )}
-
-
-          {/* Conditional Registration: Only visible for Travelers */}
-          {selectedRole === 'traveler' && (
-            <div className="text-center text-xs border-t border-card-border/40 pt-4">
-              <span className="text-slate-400">New explorer? </span>
-              <Link to="/register" className="font-bold text-primary hover:text-indigo-400 hover:underline">
-                Create an account
-              </Link>
+              <p className="text-center text-xs border-t pt-3 divider-line">
+                <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>New explorer? </span>
+                <Link to="/register" className="font-bold text-primary hover:text-indigo-400 hover:underline">
+                  Create an account
+                </Link>
+              </p>
             </div>
           )}
         </div>

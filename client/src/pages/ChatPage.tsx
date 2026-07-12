@@ -32,6 +32,7 @@ import {
   Download,
 } from 'lucide-react';
 import api from '../lib/axios';
+import { useThemeStore } from '../store/themeStore';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -56,6 +57,8 @@ const INTEREST_TAGS = [
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const [searchParams, setSearchParams] = useSearchParams();
   const tripIdParam = searchParams.get('tripId');
 
@@ -417,7 +420,7 @@ export default function ChatPage() {
 
   if (!context) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] flex-col bg-dark-bg relative overflow-hidden">
+      <div className={`flex h-[calc(100vh-4rem)] flex-col relative overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#090d16]' : 'bg-slate-50'}`}>
         {/* Glowing background highlights */}
         <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -444,7 +447,7 @@ export default function ChatPage() {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/5">
                 <Compass className="h-7 w-7 text-primary" />
               </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white glow-text">
+              <h2 className={`text-2xl md:text-3xl font-extrabold tracking-tight glow-text ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Design Your Next Journey
               </h2>
               <p className="text-slate-400 text-xs md:text-sm max-w-md mx-auto leading-relaxed">
@@ -607,7 +610,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col bg-dark-bg md:flex-row relative">
+    <div className={`flex h-[calc(100vh-4rem)] flex-col md:flex-row relative transition-colors duration-300 ${isDark ? 'bg-[#090d16]' : 'bg-slate-50'}`}>
       
       {/* LEFT CANVAS: Shared Trip Context Inspector & Visual Itinerary Timeline (Large Panel) */}
       <div className="flex flex-1 flex-col overflow-hidden bg-slate-950/10">

@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────
+   Tailwind v4 Theme Tokens (dark default)
+   ───────────────────────────────────────────── */
 @theme {
   --color-primary: #6366f1;
   --color-primary-glow: rgba(99, 102, 241, 0.15);
@@ -10,32 +13,52 @@
   --color-accent-teal: #10b981;
 }
 
+/* ─────────────────────────────────────────────
+   Base — Dark Mode (default)
+   ───────────────────────────────────────────── */
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    background-color: #090d16;
+    background-color: theme(colors.dark-bg);
     color: #f1f5f9;
     font-family: 'Inter', sans-serif;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  /* Custom Premium Scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /* Focus ring for accessibility */
+  :focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: 4px;
   }
-  ::-webkit-scrollbar-track {
-    background: #090d16;
+
+  /* Premium Scrollbar — dark */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #090d16; }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
+
+  /* ── Light mode overrides ── */
+  .light body,
+  .light {
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
   }
-  ::-webkit-scrollbar-thumb {
-    background: #1e293b;
-    border-radius: 9999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #4f46e5;
-  }
+
+  .light ::-webkit-scrollbar-track { background: #f1f5f9; }
+  .light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+  .light ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
 }
 
-/* Glassmorphism card utilities */
+/* ─────────────────────────────────────────────
+   Component Utilities
+   ───────────────────────────────────────────── */
+
+/* Glassmorphism card — dark */
 .premium-card {
   background: rgba(18, 24, 36, 0.7);
   backdrop-filter: blur(12px);
@@ -43,41 +66,150 @@
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .premium-card:hover {
   border-color: rgba(99, 102, 241, 0.25);
   box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.1);
 }
 
+/* Light mode card */
+.light .premium-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.08);
+}
+.light .premium-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.12);
+}
+
 .glow-text {
   text-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
 }
+.light .glow-text {
+  text-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
 
-/* Animations */
+/* ── Page background shim ── */
+.page-bg {
+  background-color: #090d16;
+  transition: background-color 0.3s ease;
+}
+.light .page-bg {
+  background-color: #f8fafc !important;
+}
+
+/* ── Section surfaces ── */
+.surface {
+  background-color: #121824;
+  transition: background-color 0.3s ease;
+}
+.light .surface {
+  background-color: #ffffff !important;
+}
+
+/* ── Text tokens ── */
+.text-body {
+  color: #f1f5f9;
+  transition: color 0.3s ease;
+}
+.light .text-body {
+  color: #1e293b !important;
+}
+
+.text-muted {
+  color: #94a3b8;
+  transition: color 0.3s ease;
+}
+.light .text-muted {
+  color: #64748b !important;
+}
+
+/* ── Input fields ── */
+.field-input {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem 0.625rem 2.5rem;
+  font-size: 0.75rem;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.3s;
+}
+.field-input::placeholder { color: #64748b; }
+.field-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.light .field-input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #1e293b !important;
+}
+.light .field-input::placeholder { color: #94a3b8; }
+.light .field-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
+}
+
+/* ── Navbar ── */
+.navbar-bg {
+  background: rgba(9, 13, 22, 0.85);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  backdrop-filter: blur(16px);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+.light .navbar-bg {
+  background: rgba(248, 250, 252, 0.92) !important;
+  border-bottom-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* ── Role card toggle ── */
+.role-tab-bg {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1e293b;
+  transition: background 0.3s ease;
+}
+.light .role-tab-bg {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ── Divider ── */
+.divider-line {
+  border-color: #1e293b;
+  transition: border-color 0.3s ease;
+}
+.light .divider-line {
+  border-color: #e2e8f0 !important;
+}
+
+/* ─────────────────────────────────────────────
+   Animations
+   ───────────────────────────────────────────── */
 @keyframes pulseGlow {
-  0%, 100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
-  }
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5)); }
 }
+.pulse-glow { animation: pulseGlow 2s infinite ease-in-out; }
 
-.pulse-glow {
-  animation: pulseGlow 2s infinite ease-in-out;
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+.fade-in-up { animation: fadeInUp 0.4s ease both; }
 
-/* Premium Markdown Table styles for Prose containers */
+/* ─────────────────────────────────────────────
+   Markdown Prose Styles — dark
+   ───────────────────────────────────────────── */
 .prose table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
   font-size: 0.775rem;
   line-height: 1.5;
 }
-
 .prose th {
   background-color: rgba(99, 102, 241, 0.15);
   color: #a5b4fc;
@@ -86,76 +218,43 @@
   border: 1px solid rgba(99, 102, 241, 0.2);
   text-align: left;
 }
-
 .prose td {
   padding: 0.5rem 0.75rem;
   border: 1px solid rgba(99, 102, 241, 0.1);
   color: #cbd5e1;
 }
-
-.prose tr:nth-child(even) {
-  background-color: rgba(255, 255, 255, 0.02);
-}
-
-.prose tr:hover {
-  background-color: rgba(99, 102, 241, 0.05);
-}
-
-/* Premium Typography Overrides for Markdown Prose rendering */
-.prose p {
-  margin-bottom: 0.75rem;
-  line-height: 1.6;
-}
-
-.prose p:last-child {
-  margin-bottom: 0;
-}
-
-.prose ul {
-  list-style-type: disc;
-  margin-top: 0.5rem;
-  margin-bottom: 0.75rem;
-  padding-left: 1.25rem;
-}
-
-.prose ol {
-  list-style-type: decimal;
-  margin-top: 0.5rem;
-  margin-bottom: 0.75rem;
-  padding-left: 1.25rem;
-}
-
-.prose li {
-  margin-bottom: 0.25rem;
-  line-height: 1.5;
-}
-
-.prose li::marker {
-  color: #818cf8;
-}
-
-.prose strong {
-  color: #ffffff;
-  font-weight: 700;
-}
-
+.prose tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+.prose tr:hover { background-color: rgba(99, 102, 241, 0.05); }
+.prose p { margin-bottom: 0.75rem; line-height: 1.6; }
+.prose p:last-child { margin-bottom: 0; }
+.prose ul { list-style-type: disc; margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
+.prose ol { list-style-type: decimal; margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
+.prose li { margin-bottom: 0.25rem; line-height: 1.5; }
+.prose li::marker { color: #818cf8; }
+.prose strong { color: #ffffff; font-weight: 700; }
 .prose blockquote {
   border-left: 3px solid #6366f1;
   padding-left: 0.75rem;
   color: #94a3b8;
   font-style: italic;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin: 0.5rem 0;
 }
-
 .prose h1, .prose h2, .prose h3, .prose h4 {
   color: #ffffff;
   font-weight: 700;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
+  margin: 1rem 0 0.5rem;
 }
-
 .prose h1 { font-size: 1.25rem; }
 .prose h2 { font-size: 1.1rem; }
 .prose h3 { font-size: 1rem; }
 .prose h4 { font-size: 0.9rem; }
+
+/* Prose light overrides */
+.light .prose strong { color: #1e293b; }
+.light .prose h1,
+.light .prose h2,
+.light .prose h3,
+.light .prose h4 { color: #1e293b; }
+.light .prose td { color: #475569; }
+.light .prose blockquote { color: #475569; }
+.light .prose th { color: #4f46e5; background-color: rgba(99, 102, 241, 0.08); }

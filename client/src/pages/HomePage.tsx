@@ -11,6 +11,7 @@ import {
   Sparkles,
   ChevronRight,
 } from 'lucide-react';
+import { useThemeStore } from '../store/themeStore';
 
 interface Step {
   id: number;
@@ -25,6 +26,8 @@ interface Step {
 
 export default function HomePage() {
   const [activeStep, setActiveStep] = useState(1);
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
 
   // Auto transition steps every 6 seconds to show dynamic progress
   useEffect(() => {
@@ -147,7 +150,7 @@ export default function HomePage() {
   const currentStep = steps.find((s) => s.id === activeStep) || steps[0];
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-dark-bg text-slate-100 flex flex-col justify-start relative overflow-hidden font-sans select-none">
+    <div className={`min-h-[calc(100vh-4rem)] flex flex-col justify-start relative overflow-hidden font-sans select-none transition-colors duration-300 ${isDark ? 'bg-[#090d16] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* Visual background neon light spheres */}
       <div className="absolute top-24 left-1/4 w-[380px] h-[380px] rounded-full bg-primary/10 blur-[130px] pointer-events-none" />
@@ -166,7 +169,7 @@ export default function HomePage() {
               <span>Smart Travel Planning, Made Easy</span>
             </div>
             
-            <h1 className="text-4.5xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
+            <h1 className={`text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
               A Personal AI Assistant to Plan Your{' '}
               <span className="bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
                 Dream Vacation
@@ -252,8 +255,8 @@ export default function HomePage() {
         {/* INTERACTIVE 4-STEP TIMELINE LIST */}
         <div className="space-y-6 pt-6">
           <div className="text-center max-w-xl mx-auto">
-            <h2 className="text-2xl font-bold text-white">How It Works in 4 Simple Steps</h2>
-            <p className="text-xs text-slate-455 mt-1.5 leading-relaxed">
+            <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>How It Works in 4 Simple Steps</h2>
+            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
               No complex planning sheets or endless browser tabs. TripPlanner structures everything in simple travel phases.
             </p>
           </div>
