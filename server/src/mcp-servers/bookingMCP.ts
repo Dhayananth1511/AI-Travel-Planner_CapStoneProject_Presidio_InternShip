@@ -21,41 +21,8 @@ export async function searchHotels(
   check_out: string,
   travelers: number
 ): Promise<{ hotels: HotelOption[]; recommended: string; price_per_night: number }> {
-  // Graceful fallback if Google API key is default/empty
   if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes('REPLACE_WITH')) {
-    const nights = Math.max(
-      1,
-      (new Date(check_out).getTime() - new Date(check_in).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const hotels: HotelOption[] = [
-      {
-        name: `The Grand ${destination} Palace`,
-        price_per_night_inr: 4500,
-        rating: 4.8,
-        amenities: ['WiFi', 'Breakfast', 'AC', 'Pool', 'Restaurant'],
-        total_cost_inr: 4500 * nights,
-      },
-      {
-        name: `${destination} Luxury Suites`,
-        price_per_night_inr: 3200,
-        rating: 4.5,
-        amenities: ['WiFi', 'AC', 'Breakfast', 'Bar'],
-        total_cost_inr: 3200 * nights,
-      },
-      {
-        name: `Comfort Inn ${destination}`,
-        price_per_night_inr: 1800,
-        rating: 4.0,
-        amenities: ['WiFi', 'AC'],
-        total_cost_inr: 1800 * nights,
-      }
-    ];
-
-    return {
-      hotels,
-      recommended: hotels[0].name,
-      price_per_night: hotels[0].price_per_night_inr,
-    };
+    throw new Error('Google Maps API Key is missing or not configured. Please set GOOGLE_MAPS_API_KEY in your environment variables.');
   }
 
   return withRetry(async () => {
@@ -123,16 +90,4 @@ export async function searchHotels(
   });
 }
 
-export async function mockBooking(
-  hotel: string,
-  travelers: number
-): Promise<{ booking_ref: string; status: string; confirmation_message: string }> {
-  // Simulate payment processing latency
-  await new Promise((r) => setTimeout(r, 600)); 
-  
-  return {
-    booking_ref: `BK${Date.now().toString(36).toUpperCase()}`,
-    status: 'CONFIRMED',
-    confirmation_message: `Booking confirmed at ${hotel} for ${travelers} traveler(s).`,
-  };
-}
+

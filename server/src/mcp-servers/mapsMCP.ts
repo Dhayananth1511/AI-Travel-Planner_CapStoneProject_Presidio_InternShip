@@ -12,30 +12,8 @@ export async function getPlacesNearby(
   interests: string[],
   days: number
 ): Promise<{ attractions: string[]; restaurants: string[]; timings: string; entry_fees: string }> {
-  // Graceful fallback if Google API key is default/empty
   if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes('REPLACE_WITH')) {
-    const mockAttractions = [
-      `${destination} City Center`,
-      `Scenic ${destination} Lookout`,
-      `Historic ${destination} Museum`,
-      `Grand ${destination} Park`,
-      `Traditional ${destination} Market`,
-      `${destination} Cultural Center`
-    ].slice(0, Math.min(days * 2, 8));
-
-    const mockRestaurants = [
-      `${destination} Diner`,
-      `The Golden Fork ${destination}`,
-      `${destination} Cafe & Bistro`,
-      `Royal Palace Dining`
-    ];
-
-    return {
-      attractions: mockAttractions,
-      restaurants: mockRestaurants,
-      timings: '09:00 AM - 06:00 PM (general)',
-      entry_fees: `₹${150 + Math.floor(Math.random() * 200)} per person (estimated)`,
-    };
+    throw new Error('Google Maps API Key is missing or not configured. Please set GOOGLE_MAPS_API_KEY in your environment variables.');
   }
 
   return withRetry(async () => {
@@ -79,14 +57,8 @@ export async function getDistanceMatrix(
   origin: string,
   destination: string
 ): Promise<{ distance_km: number; duration_min: number; cab_estimate_inr: number }> {
-  // Graceful fallback if Google API key is default/empty
   if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes('REPLACE_WITH')) {
-    const hash = (origin.length + destination.length) * 15;
-    const distance_km = Math.round(150 + hash + Math.random() * 50);
-    const duration_min = Math.round(distance_km * 1.2); // ~50 km/h average driving speed
-    const cab_estimate_inr = Math.round(distance_km * 12 * 2);
-
-    return { distance_km, duration_min, cab_estimate_inr };
+    throw new Error('Google Maps API Key is missing or not configured. Please set GOOGLE_MAPS_API_KEY in your environment variables.');
   }
 
   return withRetry(async () => {
