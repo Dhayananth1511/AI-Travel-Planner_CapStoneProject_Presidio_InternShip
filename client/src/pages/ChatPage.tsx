@@ -180,7 +180,11 @@ export default function ChatPage() {
     },
     onSuccess: (data) => {
       setActiveStep(null);
-      if (data.tripId) setTripId(data.tripId);
+      if (data.tripId) {
+        setTripId(data.tripId);
+        // Sync tripId into the URL so a page refresh reloads this trip
+        setSearchParams((prev) => { prev.set('tripId', data.tripId); return prev; }, { replace: true });
+      }
       if (data.context) {
         setContext(data.context);
         if (data.context.status === 'PLANNED') {
