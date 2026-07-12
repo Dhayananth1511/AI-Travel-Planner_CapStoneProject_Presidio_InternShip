@@ -585,35 +585,40 @@ export default function ChatPage() {
               </div>
             )}
 
-            <form onSubmit={handleSend} className="flex gap-2">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-                  disabled={chatMutation.isPending}
-                  placeholder="Enter details to start planning e.g. Shimla trip, budget 20000, 3 travelers"
-                  className={`w-full rounded-xl border px-4 py-3 text-xs md:text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/25 transition disabled:opacity-50 pr-12 ${
-                    isDark
-                      ? 'border-slate-800 bg-slate-900/60 text-slate-200 placeholder-slate-500'
-                      : 'border-slate-300 bg-white text-slate-800 placeholder-slate-400'
-                  }`}
-                />
+            <form
+              onSubmit={handleSend}
+              className={`flex items-center rounded-2xl border p-2 transition shadow-lg ${
+                isDark
+                  ? 'border-slate-800 bg-slate-900/40 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20'
+                  : 'border-slate-200 bg-white focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20'
+              }`}
+            >
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+                disabled={chatMutation.isPending}
+                placeholder="Enter details to start planning e.g. Shimla trip, budget 20000, 3 travelers"
+                className={`flex-1 min-w-0 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus:border-0 px-3 py-2 text-xs md:text-sm transition ${
+                  isDark ? 'text-slate-100 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'
+                }`}
+              />
+              <div className="flex items-center gap-2 shrink-0">
                 {message.length > 300 && (
-                  <span className={`absolute right-3.5 bottom-3.5 text-[10px] font-mono ${
+                  <span className={`text-[10px] font-mono select-none mr-1 ${
                     message.length >= MAX_MESSAGE_LENGTH ? 'text-red-400' : 'text-slate-500'
                   }`}>
                     {message.length}/{MAX_MESSAGE_LENGTH}
                   </span>
                 )}
+                <button
+                  type="submit"
+                  disabled={chatMutation.isPending || !message.trim()}
+                  className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary hover:bg-opacity-95 text-white shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={chatMutation.isPending || !message.trim()}
-                className="flex items-center justify-center h-[42px] w-12 rounded-xl bg-primary hover:bg-opacity-95 text-white shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
-              >
-                <Send className="h-4.5 w-4.5" />
-              </button>
             </form>
           </div>
         </div>
@@ -1362,47 +1367,46 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                {selectedInterests.length > 0 && (
-                  <p className="text-[10px] text-indigo-400 pb-1">
-                    Selected: {selectedInterests.join(', ')} — will be appended
-                  </p>
-                )}
               </div>
             )}
-
-            <form onSubmit={handleSend} className="p-4 flex gap-2">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-                  disabled={chatMutation.isPending || approveMutation.isPending || context?.status === 'CONFIRMED'}
-                  placeholder={
-                    context?.status === 'CONFIRMED'
-                      ? 'This trip is confirmed and locked from modifications.'
-                      : 'Send details to your planner...'
-                  }
-                  className={`w-full rounded-xl border px-3.5 py-3 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20 transition disabled:opacity-50 pr-12 ${
-                    isDark
-                      ? 'border-slate-800 bg-slate-900/60 text-slate-200 placeholder-slate-500'
-                      : 'border-slate-300 bg-white text-slate-800 placeholder-slate-400'
-                  }`}
-                />
+             <form
+              onSubmit={handleSend}
+              className={`mx-4 mb-4 flex items-center rounded-2xl border p-2 transition shadow-lg ${
+                isDark
+                  ? 'border-slate-800 bg-slate-900/40 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20'
+                  : 'border-slate-200 bg-white focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20'
+              }`}
+            >
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+                disabled={chatMutation.isPending || approveMutation.isPending || context?.status === 'CONFIRMED'}
+                placeholder={
+                  context?.status === 'CONFIRMED'
+                    ? 'This trip is confirmed and locked.'
+                    : 'Send details to your planner...'
+                }
+                className={`flex-1 min-w-0 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus:border-0 px-3 py-2 text-xs transition ${
+                  isDark ? 'text-slate-100 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'
+                }`}
+              />
+              <div className="flex items-center gap-2 shrink-0">
                 {message.length > 300 && (
-                  <span className={`absolute right-2.5 bottom-2.5 text-[10px] font-mono ${
+                  <span className={`text-[10px] font-mono select-none mr-1 ${
                     message.length >= MAX_MESSAGE_LENGTH ? 'text-red-400' : 'text-slate-500'
                   }`}>
                     {message.length}/{MAX_MESSAGE_LENGTH}
                   </span>
                 )}
+                <button
+                  type="submit"
+                  disabled={chatMutation.isPending || !message.trim() || context?.status === 'CONFIRMED'}
+                  className="flex items-center justify-center h-8 w-8 rounded-xl bg-primary hover:bg-opacity-95 text-white shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={chatMutation.isPending || !message.trim() || context?.status === 'CONFIRMED'}
-                className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary hover:bg-opacity-95 text-white shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
-              >
-                <Send className="h-4.5 w-4.5" />
-              </button>
             </form>
           </div>
         </div>
