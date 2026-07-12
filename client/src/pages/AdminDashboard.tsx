@@ -75,132 +75,37 @@ export default function AdminDashboard() {
   const isDark = theme === 'dark';
 
   // React Query to fetch analytics dashboard summary data
-  const { data: analytics, refetch: refetchAnalytics } = useQuery({
+  const { data: analytics, isLoading: analyticsLoading, isError: analyticsError } = useQuery({
     queryKey: ['adminAnalytics'],
     queryFn: async () => {
-      try {
-        const res = await api.get('/admin/analytics');
-        return res.data;
-      } catch (err) {
-        // Fallback mock diagnostics if server offline / setup phase
-        return {
-          statusCounts: [
-            { _id: 'DRAFT', count: 18 },
-            { _id: 'PLANNED', count: 32 },
-            { _id: 'CONFIRMED', count: 48 },
-            { _id: 'CANCELLED', count: 6 },
-          ],
-          topDestinations: [
-            { _id: 'Ooty', count: 15 },
-            { _id: 'Munnar', count: 12 },
-            { _id: 'Goa', count: 10 },
-            { _id: 'Manali', count: 8 },
-            { _id: 'Kochi', count: 5 },
-          ],
-          avgBudget: 24500,
-          totalUsers: 84,
-          totalTrips: 104,
-        };
-      }
+      const res = await api.get('/admin/analytics');
+      return res.data;
     },
+    retry: 2,
+    staleTime: 20000,
   });
 
   // React Query to fetch the list of trips
-  const { data: tripsData, refetch: refetchTrips } = useQuery({
+  const { data: tripsData, isLoading: tripsLoading, refetch: refetchTrips } = useQuery({
     queryKey: ['adminTrips', statusFilter, searchDestination, currentPage],
     queryFn: async () => {
-      try {
-        const res = await api.get('/admin/trips', {
-          params: {
-            status: statusFilter || undefined,
-            destination: searchDestination || undefined,
-            page: currentPage,
-            limit,
-          },
-        });
-        return res.data;
-      } catch (err) {
-        // Fallback mockup list
-        const rawTrips: TripItem[] = [
-          {
-            sessionId: 'aa11bb22cc33',
-            status: 'CONFIRMED',
-            createdAt: '2026-07-10T11:45:00Z',
-            userId: { name: 'Dhayananth P', email: 'dhaya@presidio.com' },
-            input: { destination: 'Ooty', budget_inr: 30000 },
-          },
-          {
-            sessionId: 'dd44ee55ff66',
-            status: 'PLANNED',
-            createdAt: '2026-07-09T08:30:00Z',
-            userId: { name: 'Ananya Sharma', email: 'ananya@traveler.org' },
-            input: { destination: 'Munnar', budget_inr: 22000 },
-          },
-          {
-            sessionId: 'gg77hh88ii99',
-            status: 'DRAFT',
-            createdAt: '2026-07-08T15:20:00Z',
-            userId: { name: 'Rohan Mehta', email: 'rohan.mehta@gmail.com' },
-            input: { destination: 'Goa', budget_inr: 15000 },
-          },
-          {
-            sessionId: 'jj00kk11ll22',
-            status: 'CONFIRMED',
-            createdAt: '2026-07-07T10:15:00Z',
-            userId: { name: 'Simran Kaur', email: 'simran@live.com' },
-            input: { destination: 'Manali', budget_inr: 45000 },
-          },
-          {
-            sessionId: 'mm33nn44oo55',
-            status: 'CANCELLED',
-            createdAt: '2026-07-06T18:00:00Z',
-            userId: { name: 'Vikram Singh', email: 'vikram@company.in' },
-            input: { destination: 'Kochi', budget_inr: 12000 },
-          },
-          {
-            sessionId: 'pp66qq77rr88',
-            status: 'CONFIRMED',
-            createdAt: '2026-07-05T09:00:00Z',
-            userId: { name: 'Siddharth Roy', email: 'sid.roy@yahoo.com' },
-            input: { destination: 'Ooty', budget_inr: 35000 },
-          },
-          {
-            sessionId: 'ss99tt00uu11',
-            status: 'PLANNED',
-            createdAt: '2026-07-04T14:30:00Z',
-            userId: { name: 'Pooja Hegde', email: 'pooja.hegde@outlook.com' },
-            input: { destination: 'Munnar', budget_inr: 18000 },
-          },
-        ];
-
-        // Apply filters locally in mockup flow
-        let filtered = rawTrips;
-        if (statusFilter) {
-          filtered = filtered.filter((t) => t.status === statusFilter);
-        }
-        if (searchDestination) {
-          filtered = filtered.filter((t) =>
-            t.input.destination?.toLowerCase().includes(searchDestination.toLowerCase())
-          );
-        }
-
-        const totalItems = filtered.length;
-        const startIndex = (currentPage - 1) * limit;
-        const paginatedItems = filtered.slice(startIndex, startIndex + limit);
-
-        return {
-          trips: paginatedItems,
-          total: totalItems,
+      const res = await api.get('/admin/trips', {
+        params: {
+          status: statusFilter || undefined,
+          destination: searchDestination || undefined,
           page: currentPage,
-        };
-      }
+          limit,
+        },
+      });
+      return res.data;
     },
+    retry: 2,
+    staleTime: 20000,
   });
 
   // Hot polling database records every 20 seconds
   useEffect(() => {
     const timer = setInterval(() => {
-      refetchAnalytics();
       refetchTrips();
     }, 20000);
     return () => clearInterval(timer);
@@ -289,8 +194,30 @@ export default function AdminDashboard() {
 
   const totalPages = Math.ceil((tripsData?.total || 0) / limit);
 
+  // Loading state
+  if (analyticsLoading || tripsLoading) {
+    return (
+      <div className={`flex flex-col items-center justify-center min-h-[60vh] gap-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+        <Compass className="h-10 w-10 text-primary animate-spin" />
+        <p className="text-sm font-medium">Loading real-time dashboard data...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (analyticsError) {
+    return (
+      <div className={`flex flex-col items-center justify-center min-h-[60vh] gap-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+        <div className="h-12 w-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 text-xl font-bold">!</div>
+        <p className="text-sm font-semibold text-red-400">Failed to load dashboard data</p>
+        <p className="text-xs">Check that the server is running and your session is valid.</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 min-h-[calc(100vh-4rem)] transition-colors duration-300 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
