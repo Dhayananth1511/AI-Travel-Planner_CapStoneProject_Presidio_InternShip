@@ -198,7 +198,16 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.json({ success: true, accessToken });
+    res.json({
+      success: true,
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error: any) {
     logger.warn(`Session refresh failed: ${error.message}`);
     res.status(401).json({ success: false, message: 'Session expired. Please log in.' });

@@ -28,25 +28,32 @@ export default function App() {
   const [authReady, setAuthReady] = useState(false);
 
   // On every app boot / page refresh, silently call /auth/refresh to restore
-  // the in-memory accessToken from the httpOnly refresh cookie.
-  // This prevents logout-on-refresh while keeping the token out of localStorage.
+  // the in-memory accessToken (and user profile) from the httpOnly refresh cookie.
+  // We always attempt this — even if sessionStorage was wiped — because the
+  // httpOnly cookie survives a full page reload.
   useEffect(() => {
     const restoreSession = async () => {
-      if (user) {
-        // User profile exists in sessionStorage — try to get a fresh access token
-        try {
-          const { data } = await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
-            {},
-            { withCredentials: true }
-          );
+      try {
+        const { data } = await axios.post(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
+        // Rehydrate both token AND user profile from the server response
+        if (data.accessToken && data.user) {
           setToken(data.accessToken);
-        } catch {
-          // Refresh token expired or invalid — force logout cleanly
-          logout();
+          // If user profile is missing from sessionStorage (e.g. after hard refresh),
+          // restore it from the server's refresh response
+          if (!user) {
+            useAuthStore.getState().setAuth(data.user, data.accessToken);
+          }
         }
+      } catch {
+        // No valid refresh cookie — clear any stale session state and stay logged out
+        logout();
+      } finally {
+        setAuthReady(true);
       }
-      setAuthReady(true);
     };
     restoreSession();
   }, []);
