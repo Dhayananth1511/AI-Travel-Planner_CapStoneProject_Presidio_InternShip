@@ -349,6 +349,12 @@ export const googleOAuthCallback = async (req: Request, res: Response): Promise<
         return;
       }
 
+      if (user && type === 'register') {
+        logger.info('Google Registration blocked: Account already exists', { email: profile.email });
+        res.redirect(`${clientUrl}/register?google_auth=error&message=An+account+with+this+Google+email+already+exists.+Please+login+instead.`);
+        return;
+      }
+
       if (!user) {
         if (type === 'login') {
           logger.info('Google Sign-In blocked: Account not found in database', { email: profile.email });
