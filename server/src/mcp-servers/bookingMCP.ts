@@ -105,6 +105,13 @@ async function searchHotelbedsHotels(
     'pondy': 'PON',
     'pondicherry': 'PON',
     'alleppey': 'ALL',
+    'srinagar': 'SXR',
+    'jammu and kashmir': 'SXR',
+    'jammu': 'SXR',
+    'gulmarg': 'SXR',
+    'pahalgam': 'SXR',
+    'katra': 'SXR',
+    'kashmir': 'SXR',
   };
 
   const normDest = destination.trim().toLowerCase();
@@ -140,9 +147,9 @@ async function searchHotelbedsHotels(
     }
   }
 
-  // Safe fallback if not matched
   if (!destinationCode) {
-    destinationCode = normDest.substring(0, 3).toUpperCase();
+    console.warn(`Destination code for '${destination}' not found in Hotelbeds content database.`);
+    return null;
   }
 
   const availabilityUrl = `${HOTELBEDS_BASE_URL}/hotel-api/1.0/hotels`;
@@ -260,16 +267,7 @@ async function searchGooglePlacesHotels(
     };
   });
 
-  if (hotels.length === 0) {
-    const fallbackPrice = 2500;
-    hotels.push({
-      name: `${destination} Grand Resort`,
-      price_per_night_inr: fallbackPrice,
-      rating: 4.2,
-      amenities: ['WiFi', 'Breakfast', 'AC', 'Pool'],
-      total_cost_inr: fallbackPrice * nights,
-    });
-  }
+  // Removed simulated resort generation when zero results are found
 
   return hotels;
 }
@@ -304,82 +302,20 @@ export async function searchHotels(
         hotels = await searchGooglePlacesHotels(destination, check_in, check_out);
       }
     } catch (err: any) {
-      console.warn(`Hotel search via API failed (${err.message}). Using defensive fallbacks for ${destination}.`);
-      hotels = [
-        {
-          name: `${destination} Cozy Homestay`,
-          price_per_night_inr: 1800,
-          rating: 4.3,
-          amenities: ['WiFi', 'AC', 'Breakfast'],
-          total_cost_inr: 1800 * nights,
-        },
-        {
-          name: `${destination} Backpackers Hostel`,
-          price_per_night_inr: 850,
-          rating: 4.1,
-          amenities: ['WiFi', 'AC', 'Locker Room'],
-          total_cost_inr: 850 * nights,
-        },
-        {
-          name: `${destination} Tourist House`,
-          price_per_night_inr: 1200,
-          rating: 4.0,
-          amenities: ['WiFi', 'Breakfast'],
-          total_cost_inr: 1200 * nights,
-        },
-        {
-          name: `${destination} Premium Inn & Suites`,
-          price_per_night_inr: 3500,
-          rating: 4.7,
-          amenities: ['WiFi', 'AC', 'Pool', 'Restaurant', 'Breakfast'],
-          total_cost_inr: 3500 * nights,
-        },
-        {
-          name: `${destination} Heritage Hotel`,
-          price_per_night_inr: 2600,
-          rating: 4.5,
-          amenities: ['WiFi', 'AC', 'Heritage Courtyard', 'Restaurant'],
-          total_cost_inr: 2600 * nights,
-        },
-        {
-          name: `${destination} City Center Vista`,
-          price_per_night_inr: 4300,
-          rating: 4.6,
-          amenities: ['WiFi', 'AC', 'Gym', 'Restaurant', 'Bar'],
-          total_cost_inr: 4300 * nights,
-        },
-        {
-          name: `${destination} Grand Resort & Spa`,
-          price_per_night_inr: 7200,
-          rating: 4.9,
-          amenities: ['WiFi', 'AC', 'Pool', 'Spa', 'Restaurant', 'Bar', 'Breakfast'],
-          total_cost_inr: 7200 * nights,
-        },
-        {
-          name: `${destination} Royal Palace Retreat`,
-          price_per_night_inr: 12500,
-          rating: 4.9,
-          amenities: ['WiFi', 'AC', 'Infinity Pool', 'Royalty Gardens', 'Fine Dining', 'Butler Service'],
-          total_cost_inr: 12500 * nights,
-        },
-        {
-          name: `${destination} Pavilion Heights Resort`,
-          price_per_night_inr: 9500,
-          rating: 4.8,
-          amenities: ['WiFi', 'AC', 'Pool', 'Health Club', 'Rooftop Bar', 'Breakfast Buffet'],
-          total_cost_inr: 9500 * nights,
-        }
-      ];
+      console.warn(`Hotel search via API failed (${err.message}). Returning empty hotel selection list.`);
+      hotels = [];
     }
 
-    const recommendedHotel = hotels.reduce((lowest, current) => {
-      return current.total_cost_inr < lowest.total_cost_inr ? current : lowest;
-    }, hotels[0]) || { name: `${destination} Hotel`, price_per_night_inr: 2500 };
+    const recommendedHotel = hotels.length > 0
+      ? hotels.reduce((lowest, current) => {
+          return current.total_cost_inr < lowest.total_cost_inr ? current : lowest;
+        }, hotels[0])
+      : null;
 
     return {
       hotels,
-      recommended: recommendedHotel.name,
-      price_per_night: recommendedHotel.price_per_night_inr,
+      recommended: recommendedHotel?.name || '',
+      price_per_night: recommendedHotel?.price_per_night_inr || 0,
     };
   });
 }

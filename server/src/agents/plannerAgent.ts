@@ -17,7 +17,7 @@ import { validateTripDates, clampTravelers, clampBudget } from '../utils/inputSa
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.3-70b-versatile', // Versatile model for accurate slot extraction
+  model: 'llama-3.1-8b-instant', // Fast model for slots and supervisor routing
   temperature: 0.1,
 });
 
@@ -254,7 +254,7 @@ You MUST invoke exactly one tool.`;
 
   const supervisorLlm = new ChatGroq({
     apiKey: process.env.GROQ_API_KEY,
-    model: 'llama-3.1-8b-instant', // Different model pool to spread RPM load
+    model: 'llama-3.1-8b-instant',
     temperature: 0.1,
   });
 
@@ -284,6 +284,13 @@ You MUST invoke exactly one tool.`;
   if (selectedTool === 'orchestrate_and_generate_trip_plan' && hasMissingCriticalFields) {
     logger.warn('Supervisor hallucinated — critical fields missing but LLM chose plan generation. Overriding to validate.');
     selectedTool = 'validate_trip_inputs';
+  }
+  // Guard 3: LLM must not route to validate when all critical fields are already present.
+  // This prevents replanning being stuck in NEEDS_INFO when the user sends a short modification
+  // message (e.g., "add 1 day") that doesn't contain all the trip details.
+  if (selectedTool === 'validate_trip_inputs' && hasDestination && !hasMissingCriticalFields) {
+    logger.warn('Supervisor chose validate_trip_inputs despite all params being present. Overriding to orchestrate.');
+    selectedTool = 'orchestrate_and_generate_trip_plan';
   }
 
   // Flow A: Check for missing info
