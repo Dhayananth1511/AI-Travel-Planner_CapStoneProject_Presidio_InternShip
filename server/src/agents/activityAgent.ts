@@ -39,6 +39,7 @@ export const activityTool = tool(
         ...data,
         restaurants: nearby.restaurants,
         restaurant_options: (nearby as any).restaurant_options || [],
+        attraction_options: (nearby as any).attraction_options || [],
         timings: nearby.timings,
       };
     } catch {

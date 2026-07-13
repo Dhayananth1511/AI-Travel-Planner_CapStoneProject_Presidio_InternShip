@@ -303,3 +303,38 @@ export const selectHotel = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({ message: 'Failed to update hotel selection. Please try again.' });
   }
 };
+
+// GET /api/trips/place-photo — Proxy endpoint to fetch Google Places photos securely
+export const getPlacePhoto = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { photo_reference } = req.query;
+    if (!photo_reference || typeof photo_reference !== 'string') {
+      res.status(400).json({ message: 'Photo reference is required.' });
+      return;
+    }
+
+    const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes('REPLACE_WITH')) {
+      res.status(500).json({ message: 'Google Maps API key is not configured.' });
+      return;
+    }
+
+    const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photo_reference}&key=${GOOGLE_API_KEY}`;
+    const response = await fetch(photoUrl);
+
+    if (!response.ok) {
+      res.status(response.status).json({ message: 'Failed to fetch image from Google Places API.' });
+      return;
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.send(buffer);
+  } catch (error: any) {
+    logger.error('Failed to proxy place photo', { error });
+    res.status(500).json({ message: 'Failed to proxy place photo.' });
+  }
+};

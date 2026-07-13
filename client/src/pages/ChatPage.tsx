@@ -30,6 +30,8 @@ import {
   Calendar,
   Compass,
   Download,
+  ArrowUpRight,
+  ExternalLink,
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useThemeStore } from '../store/themeStore';
@@ -1432,14 +1434,15 @@ export default function ChatPage() {
               {context.activities && (
                 <div className="premium-card rounded-xl p-4 space-y-2">
                   <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
-                    isDark ? 'text-indigo-400' : 'text-indigo-705'
+                    isDark ? 'text-indigo-400' : 'text-indigo-700'
                   }`}>
                     <MapPin className="h-4.5 w-4.5 text-primary" /> Sightseeing Specialist Agent
                   </h4>
-                  <div className={`p-3 rounded-lg border text-xs space-y-2.5 transition-colors ${
+                  <div className={`p-3 rounded-lg border text-xs space-y-3.5 transition-colors ${
                     isDark ? 'bg-indigo-955/20 border-slate-800' : 'bg-slate-50 border-slate-205'
                   }`}>
                     <p className={`font-medium ${isDark ? 'text-slate-350' : 'text-slate-700'}`}>🗺️ **Matched Interests**: {(context.input.interests || []).join(', ') || 'General Sightseeing'}</p>
+                    
                     {context.activities.reasoning && (
                       <div className={`mt-2 p-2.5 rounded border text-[11px] leading-relaxed transition-colors ${
                         isDark ? 'text-indigo-305 bg-indigo-955/45 border-indigo-900/40' : 'text-indigo-900 bg-indigo-50 border-indigo-120/40'
@@ -1451,6 +1454,105 @@ export default function ChatPage() {
                           }`}>
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{context.activities.reasoning}</ReactMarkdown>
                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rich Attraction Cards Grid */}
+                    {Array.isArray(context.activities.attraction_options) && context.activities.attraction_options.length > 0 && (
+                      <div className="space-y-3 pt-2">
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          📍 Core Sightseeing Destinations
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          {context.activities.attraction_options.map((item: any, idx: number) => {
+                            const ratingValue = Math.min(5, Math.max(0, item.rating || 0));
+                            const stars = Array.from({ length: 5 }, (_, i) => i < Math.round(ratingValue));
+                            
+                            // Build direct search query for Google Maps using name and destination
+                            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + ' ' + (context.input?.destination || ''))}${item.place_id ? `&query_place_id=${item.place_id}` : ''}`;
+                            
+                            // Image source: Proxy server endpoint or fallback Unsplash URL
+                            const imgSrc = item.photo_reference
+                              ? (item.photo_reference.startsWith('http')
+                                ? item.photo_reference
+                                : `/api/trips/place-photo?photo_reference=${item.photo_reference}`)
+                              : 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`group p-2.5 rounded-xl border transition-all flex flex-col gap-2 relative overflow-hidden ${
+                                  isDark
+                                    ? 'bg-slate-900/60 border-slate-850 hover:bg-slate-900/80 hover:border-slate-700 hover:shadow-lg'
+                                    : 'bg-white border-slate-205 hover:border-slate-350 hover:shadow-lg'
+                                }`}
+                              >
+                                {/* Image Container */}
+                                <div className="h-28 w-full relative rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-950">
+                                  <img
+                                    src={imgSrc}
+                                    alt={item.name}
+                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                    onError={(e) => {
+                                      e.currentTarget.src = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+                                    }}
+                                  />
+                                  <div className="absolute top-2 right-2 flex items-center justify-center">
+                                    <a
+                                      href={mapsUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="Open in Google Maps"
+                                      className={`h-7 w-7 rounded-full flex items-center justify-center shadow-lg transition active:scale-90 scale-95 hover:scale-105 ${
+                                        isDark
+                                          ? 'bg-slate-955 text-indigo-400 hover:bg-primary/20 hover:text-white border border-slate-805'
+                                          : 'bg-white text-indigo-700 hover:bg-primary hover:text-white border border-slate-205'
+                                      }`}
+                                    >
+                                      <ArrowUpRight className="h-4 w-4" />
+                                    </a>
+                                  </div>
+                                </div>
+
+                                {/* Content Details */}
+                                <div className="flex flex-col flex-1 justify-between gap-1 px-0.5">
+                                  <div>
+                                    <h5 className={`font-bold text-[11.5px] leading-tight line-clamp-1 group-hover:text-primary transition-colors ${isDark ? 'text-slate-100' : 'text-slate-900'}`} title={item.name}>
+                                      {item.name}
+                                    </h5>
+                                    {item.vicinity && (
+                                      <p className={`text-[9.5px] line-clamp-1 mt-0.5 flex items-center gap-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        <MapPin className="h-2.5 w-2.5 shrink-0" />
+                                        {item.vicinity}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-1.5 mt-1 pt-1 border-t border-slate-150/10 dark:border-slate-800">
+                                    {/* Star Rating */}
+                                    <div className="flex items-center gap-0.5">
+                                      <span className="flex text-amber-500 text-[8.5px]">
+                                        {stars.map((filled, sIdx) => (
+                                          <span key={sIdx}>{filled ? '★' : '☆'}</span>
+                                        ))}
+                                      </span>
+                                      <span className={`text-[9px] font-bold ml-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        {ratingValue.toFixed(1)}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Reviews Count */}
+                                    {item.user_ratings_total !== undefined && (
+                                      <span className={`text-[8.5px] font-semibold font-mono ${isDark ? 'text-slate-500' : 'text-slate-450'}`}>
+                                        ({item.user_ratings_total.toLocaleString()} reviews)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

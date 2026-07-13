@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import {
   createOrUpdateTrip, approveTrip, rejectTrip,
-  getUserTrips, getTripById, cancelTrip, selectHotel
+  getUserTrips, getTripById, cancelTrip, selectHotel,
+  getPlacePhoto
 } from '../controllers/tripController';
 
 const router = Router();
@@ -14,6 +15,7 @@ router.use(authenticate);
 
 router.post('/plan', createOrUpdateTrip);
 router.get('/', getUserTrips);
+router.get('/place-photo', getPlacePhoto);
 router.get('/:tripId', getTripById);
 router.post('/:tripId/approve', approveTrip);
 router.post('/:tripId/reject', rejectTrip);

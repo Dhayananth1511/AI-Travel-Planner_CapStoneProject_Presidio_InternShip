@@ -11,7 +11,14 @@ export async function getPlacesNearby(
   destination: string,
   interests: string[],
   days: number
-): Promise<{ attractions: string[]; restaurants: string[]; restaurant_options: Array<{ name: string; rating: number; price_level?: number; user_ratings_total?: number }>; timings: string; entry_fees: string }> {
+): Promise<{ 
+  attractions: string[]; 
+  restaurants: string[]; 
+  restaurant_options: Array<{ name: string; rating: number; price_level?: number; user_ratings_total?: number }>; 
+  attraction_options: Array<{ name: string; rating: number; user_ratings_total?: number; photo_reference?: string | null; place_id?: string | null; vicinity?: string | null; types?: string[] }>;
+  timings: string; 
+  entry_fees: string; 
+}> {
   if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes('REPLACE_WITH')) {
     throw new Error('Google Maps API Key is missing or not configured. Please set GOOGLE_MAPS_API_KEY in your environment variables.');
   }
@@ -33,9 +40,17 @@ export async function getPlacesNearby(
       );
       const placesData: any = await placesRes.json();
 
-      const attractions = placesData.results
-        ?.slice(0, Math.min(days * 2, 8))
-        .map((p: any) => p.name) || [];
+      const attractionResults = placesData.results?.slice(0, Math.min(days * 2, 8)) || [];
+      const attractions = attractionResults.map((p: any) => p.name);
+      const attractionOptions = attractionResults.map((p: any) => ({
+        name: p.name,
+        rating: p.rating || 0,
+        user_ratings_total: p.user_ratings_total || 0,
+        photo_reference: p.photos?.[0]?.photo_reference || null,
+        place_id: p.place_id || null,
+        vicinity: p.vicinity || null,
+        types: p.types || [],
+      }));
 
       // Search for restaurants
       const restRes = await fetch(
@@ -54,6 +69,7 @@ export async function getPlacesNearby(
         attractions,
         restaurants,
         restaurant_options: restaurantOptions,
+        attraction_options: attractionOptions,
         timings: '09:00 AM - 06:00 PM (general)',
         entry_fees: `₹${100 + Math.floor(Math.random() * 300)} per person (estimated)`,
       };
@@ -75,10 +91,29 @@ export async function getPlacesNearby(
         { name: `Royal Tavern & Lounge`, rating: 4.2, price_level: 2, user_ratings_total: 65 }
       ];
 
+      const fallbackImages = [
+        'https://images.unsplash.com/photo-1548013146-72479768bbfd?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1590076247563-7ee70322d9ee?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1554034483-04fda0d3507b?auto=format&fit=crop&w=600&q=80',
+      ];
+
+      const fallbackAttractionOptions = fallbackAttractions.map((name, idx) => ({
+        name,
+        rating: parseFloat((4.0 + (idx * 0.2) % 0.9).toFixed(1)),
+        user_ratings_total: 100 + Math.floor(Math.random() * 400),
+        photo_reference: fallbackImages[idx % fallbackImages.length],
+        place_id: `fallback-${idx}`,
+        vicinity: `${destination} Tourist Area`,
+        types: ['tourist_attraction', 'point_of_interest'],
+      }));
+
       return {
         attractions: fallbackAttractions,
         restaurants: fallbackRestaurantOptions.map(r => r.name),
         restaurant_options: fallbackRestaurantOptions,
+        attraction_options: fallbackAttractionOptions,
         timings: '09:00 AM - 06:00 PM (general)',
         entry_fees: `₹150 per person (estimated)`,
       };
