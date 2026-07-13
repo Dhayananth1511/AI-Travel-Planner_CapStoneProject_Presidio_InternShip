@@ -8,6 +8,7 @@ import { weatherTool } from './weatherAgent';
 import { transportTool } from './transportAgent';
 import { accommodationTool } from './accommodationAgent';
 import { activityTool } from './activityAgent';
+import { localTransportTool } from './localTransportAgent';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
@@ -28,6 +29,7 @@ const modelWithTools = routerLlm.bindTools([
   transportTool,
   accommodationTool,
   activityTool,
+  localTransportTool,
 ]);
 
 export async function runParallelAgents(context: TripContext, userMessage: string): Promise<TripContext> {
@@ -40,20 +42,21 @@ export async function runParallelAgents(context: TripContext, userMessage: strin
 
   const systemPrompt = `You are an intelligent travel supervisor. Based on the user query and current state, call the appropriate tools.
 Rules:
-1. If this is the initial planning session (i.e. context contains mostly empty fields or no weather/hotel/transit data is fetched), call ALL four tools:
+1. If this is the initial planning session (i.e. context contains mostly empty fields or no weather/hotel/transit data is fetched), call ALL five tools:
    - fetch_weather (requires destination, start_date, end_date)
    - fetch_transport (requires origin, destination, travel_date, travelers)
    - fetch_accommodation (requires destination, check_in, check_out, travelers)
    - fetch_activities (requires destination, interests, days)
+   - fetch_local_transport (requires destination, hotel_location)
 2. If this is a modification (re-planning) request, call ONLY the tool(s) specific to the user's requirements:
-   - "change hotel" or "find different lodging" or choosing a cheaper hotel tier -> call ONLY fetch_accommodation
-   - "add food spots" or "new interests" -> call ONLY fetch_activities
-   - "change dates" -> dates impact transit, accommodation, and weather, so call fetch_weather, fetch_transport, and fetch_accommodation.
+   - "change hotel" or "find different lodging" or choosing a cheaper hotel tier -> call fetch_accommodation and fetch_local_transport.
+   - "add food spots" or "new interests" -> call ONLY fetch_activities.
+   - "change dates" -> dates impact transit, accommodation, weather, and local transit, so call fetch_weather, fetch_transport, fetch_accommodation, and fetch_local_transport.
 3. For fetch_accommodation, you must pass the optional "tier" parameter based on the user's details:
    - If user asks to choose a cheaper hotel tier, save money on lodging, or requests budget/cheap options, pass tier="budget".
    - If user requests luxury, high-end, premium, or expensive options, pass tier="luxury".
    - If user requests normal, mid-range, average, or moderate options, pass tier="mid-range".
-Ensure you populate tool arguments using the current context: destination="${input.destination || ''}", origin="${input.origin || ''}", start_date="${input.start_date || ''}", end_date="${input.end_date || ''}", travelers=${input.travelers || 0}, days=${days}, interests=${JSON.stringify(input.interests || [])}.`;
+Ensure you populate tool arguments using the current context: destination="${input.destination || ''}", origin="${input.origin || ''}", start_date="${input.start_date || ''}", end_date="${input.end_date || ''}", travelers=${input.travelers || 0}, days=${days}, interests=${JSON.stringify(input.interests || [])}, hotel_location="${context.accommodation?.recommended || ''}".`;
 
   const response = await withRetry(() => modelWithTools.invoke([
     new SystemMessage(systemPrompt),
@@ -62,6 +65,7 @@ Ensure you populate tool arguments using the current context: destination="${inp
       hasTransport: !!context.transport?.options?.length,
       hasAccommodation: !!context.accommodation?.hotels?.length,
       hasActivities: !!context.activities?.attractions?.length,
+      hasLocalTransport: !!context.local_transport?.cab_estimates?.length,
     })}`)
   ]));
 
@@ -75,7 +79,8 @@ Ensure you populate tool arguments using the current context: destination="${inp
       { name: 'fetch_weather', args: { destination: input.destination!, start_date: input.start_date!, end_date: input.end_date! } },
       { name: 'fetch_transport', args: { origin: input.origin!, destination: input.destination!, travel_date: input.start_date!, travelers: input.travelers } },
       { name: 'fetch_accommodation', args: { destination: input.destination!, check_in: input.start_date!, check_out: input.end_date!, travelers: input.travelers } },
-      { name: 'fetch_activities', args: { destination: input.destination!, interests: input.interests || [], days } }
+      { name: 'fetch_activities', args: { destination: input.destination!, interests: input.interests || [], days } },
+      { name: 'fetch_local_transport', args: { destination: input.destination!, hotel_location: context.accommodation?.recommended || '' } }
     );
   }
 
@@ -93,6 +98,8 @@ Ensure you populate tool arguments using the current context: destination="${inp
       rawResult = await accommodationTool.invoke(args as any);
     } else if (toolName === 'fetch_activities') {
       rawResult = await activityTool.invoke(args as any);
+    } else if (toolName === 'fetch_local_transport') {
+      rawResult = await localTransportTool.invoke(args as any);
     } else {
       throw new Error(`Unknown tool chosen by LLM: ${toolName}`);
     }
@@ -117,6 +124,7 @@ Ensure you populate tool arguments using the current context: destination="${inp
       else if (name === 'fetch_transport') newContext.transport = value;
       else if (name === 'fetch_accommodation') newContext.accommodation = value;
       else if (name === 'fetch_activities') newContext.activities = value;
+      else if (name === 'fetch_local_transport') newContext.local_transport = value;
     } else {
       const err = res.reason;
       logger.error('Dynamic tool call failed during concurrent execution', { 
@@ -157,6 +165,7 @@ IMPORTANT: Always structure your output with Day 1, Day 2, etc. sections.`;
       attractions: (context.activities?.attractions || []).slice(0, 10),
       restaurants: (context.activities?.restaurants || []).slice(0, 6),
     },
+    local_transport: context.local_transport || 'No local transport estimates available.',
     itinerary_days: (context.itinerary?.days || []).map((d: any) => ({
       day: d.day,
       date: d.date,

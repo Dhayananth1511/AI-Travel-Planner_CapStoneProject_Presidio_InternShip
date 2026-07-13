@@ -100,17 +100,26 @@ graph TD
         ActMCP --> ActSave["Write to Redis"]:::cache
         ActCacheCheck -->|Hit| ActOut["Activity Data"]
         ActSave --> ActOut
+        
+        %% Local Transport
+        LocalTransAgent["Local Transport Agent<br/>(fetch_local_transport tool)"]:::agent --> LocalCacheCheck{"Redis Check"}:::cache
+        LocalCacheCheck -->|Miss| LocalMCP["Distance Matrix MCP Request"]:::api
+        LocalMCP --> LocalSave["Write to Redis"]:::cache
+        LocalCacheCheck -->|Hit| LocalOut["Local Transport Data"]
+        LocalSave --> LocalOut
     end
     
     Coordinator -->|fetch_weather| WeatherAgent
     Coordinator -->|fetch_transport| TransAgent
     Coordinator -->|fetch_accommodation| AccomAgent
     Coordinator -->|fetch_activities| ActAgent
+    Coordinator -->|fetch_local_transport| LocalTransAgent
     
     WeatherOut --> JoinTasks["Aggregate Parallel Outputs"]:::process
     TransOut --> JoinTasks
     AccomOut --> JoinTasks
     ActOut --> JoinTasks
+    LocalOut --> JoinTasks
     
     %% --- Sequential Agent Execution ---
     subgraph SequentialTasks ["Stage 2: Sequential Planning"]
@@ -130,7 +139,9 @@ graph TD
     HITL -->|Reject| ModifyReq["Modify via Replanning Agent"]:::agent
     ModifyReq --> PreserData["Preserve Context<br/>(Keep destination, weather, transport, prefs)"]:::process
     PreserData --> UpdateReq["Update requested changes only<br/>(Edit accommodation, budget, or itinerary)"]:::process
-    UpdateReq --> Coordinator
+    UpdateReq --> PlannerService["Planner Service<br/>(Re-enters Supervisor Loop)"]:::process
+    PlannerService --> PlannerSupervisor2["Planner Agent / Supervisor"]:::agent
+    PlannerSupervisor2 --> Coordinator
     
     HITL -->|Approve| BookingSystem["Mocked Booking Agent<br/>(Mock reservations & payments)"]:::agent
     
@@ -252,17 +263,26 @@ graph TD
         MapsMCP --> ActWrite["Write to Redis"]:::cache
         ActCache -->|Hit| ActJoin["Activity Data"]
         ActWrite --> ActJoin
+        
+        %% Local Transport
+        LocalAgent["Local Transport Agent"]:::agent --> LocalCache{"Redis Check"}:::cache
+        LocalCache -->|Miss| DistMCP["Maps MCP (Distance Matrix)"]:::tool
+        DistMCP --> LocalWrite["Write to Redis"]:::cache
+        LocalCache -->|Hit| LocalJoin["Local Transport Data"]
+        LocalWrite --> LocalJoin
     end
     
     Coord --> WeatherAgent
     Coord --> TransAgent
     Coord --> AccomAgent
     Coord --> ActAgent
+    Coord --> LocalAgent
     
     WeatherJoin --> JoinGather["Join Gathered Data"]:::process
     TransJoin --> JoinGather
     AccomJoin --> JoinGather
     ActJoin --> JoinGather
+    LocalJoin --> JoinGather
     
     subgraph SequentialPhase ["Sequential Planning Phase"]
         BudgetAgent["Budget Agent"]:::agent
@@ -295,7 +315,9 @@ graph TD
     Approve -->|No| ReplanningAgent["Replanning Agent<br/>(Context Preservation)"]:::agent
     ReplanningAgent --> PrefsKeep["Preserve Context<br/>(destination, weather, transport, prefs)"]:::process
     PrefsKeep --> UpdateOnly["Update only requested changes"]:::process
-    UpdateOnly --> Coord
+    UpdateOnly --> PlannerSvc2["Planner Service<br/>(Re-enters Supervisor Loop)"]:::process
+    PlannerSvc2 --> Planner
+    Planner --> Coord
     
     %% Mocked Booking Layer details
     Approve -->|Yes| BookingAgent["Mocked Booking Agent"]:::agent
@@ -809,7 +831,7 @@ After parallel results are aggregated into the shared `TripContext`, the sequent
 
 | Agent | Trigger | Input | Output |
 |:---|:---|:---|:---|
-| **Replanning Agent** | User rejects plan | Rejection reason + original `TripContext` | Preserves existing context (destination, weather, transport), updates only modified slots, and hands back to Coordinator to re-plan |
+| **Replanning Agent** | User rejects plan | Rejection reason + original `TripContext` | Preserves existing context (destination, weather, transport), clears only the modified slots, then hands back to **Planner Service → PlannerAgent Supervisor**, which re-runs the full swarm from Stage 0 with the enriched context |
 | **Booking Agent** | User approves plan | Final approved `TripContext` | `{ booking_refs: {...}, status: "CONFIRMED" }` |
 | **Calendar Agent** | Post-booking | Trip dates + user email | Google Calendar events created, confirmation sent |
 
