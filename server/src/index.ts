@@ -1,5 +1,5 @@
 import 'dotenv/config'; // Loads .env first before anything else runs
-// Force nodemon restart to load updated mongoose schemas
+// Force nodemon restart to load updated mongoose schemas (force reload: 3)
 import dns from 'dns';
 
 // Resolve querySrv ECONNREFUSED by using public DNS servers in development mode

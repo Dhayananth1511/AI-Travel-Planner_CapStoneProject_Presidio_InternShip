@@ -241,7 +241,7 @@ export default function ChatPage() {
           content: `🎉 Awesome! The trip has been successfully approved & confirmed.\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${data.bookingRefs?.hotel}\`\n* ✈️ **Transport:** \`${data.bookingRefs?.transport}\`\n* 📅 **Calendar integration:** Created Google Calendar event (\`${data.bookingRefs?.calendar}\`)`,
         },
       ]);
-      if (context) setContext({ ...context, status: 'CONFIRMED', booking: { refs: data.bookingRefs } });
+      if (context) setContext({ ...context, status: 'CONFIRMED', booking: { refs: data.bookingRefs, confirmed_at: new Date().toISOString() } });
     },
     onError: (err: any) => {
       toast.error(`Approval failed: ${err.response?.data?.message || err.message}`);
@@ -731,6 +731,62 @@ export default function ChatPage() {
                 </div>
               </div>
 
+              {/* BOOKING CONFIRMATION DETAILS (Only visible when status is CONFIRMED) */}
+              {context.status === 'CONFIRMED' && (
+                <div className="premium-card rounded-xl p-5 border border-emerald-500/20 bg-emerald-500/5 space-y-4 animate-fadeIn">
+                  <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-sans animate-pulse">
+                    <Check className="h-4 w-4 text-emerald-450 bg-emerald-500/10 p-0.5 rounded-full" />
+                    Booking Reservations Confirmed
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-205'}`}>
+                      <span className={`text-[10px] block font-bold uppercase mb-1 flex items-center gap-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <Building2 className="h-3.5 w-3.5 text-primary animate-pulse" /> Lodging Reservation
+                      </span>
+                      <p className={`font-bold text-xs ${isDark ? 'text-slate-200' : 'text-slate-850'}`}>
+                        {context.accommodation?.recommended || 'Recommended Hotel'}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className={`text-[10.5px] px-2 py-0.5 rounded font-mono font-bold ${isDark ? 'bg-slate-950 text-emerald-450 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-250/50'}`}>
+                          {context.booking?.refs?.hotel || 'Securing...'}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-medium">Secured</span>
+                      </div>
+                    </div>
+
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-205'}`}>
+                      <span className={`text-[10px] block font-bold uppercase mb-1 flex items-center gap-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <Car className="h-3.5 w-3.5 text-primary animate-pulse" /> Transit Reservation
+                      </span>
+                      <p className={`font-bold text-xs ${isDark ? 'text-slate-205' : 'text-slate-850'}`}>
+                        {context.transport?.best_option || (context.transport?.options?.[0]?.operator ? `${context.transport?.options?.[0]?.mode}: ${context.transport?.options?.[0]?.operator}` : 'Best Transport Option')}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className={`text-[10.5px] px-2 py-0.5 rounded font-mono font-bold ${isDark ? 'bg-slate-950 text-emerald-450 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-250/50'}`}>
+                          {context.booking?.refs?.transport || 'Securing...'}
+                        </span>
+                        <span className="text-[9px] text-slate-550 font-medium">Secured</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${isDark ? 'bg-slate-950/45 border-slate-850' : 'bg-[#f0fdf4]/50 border-emerald-100/50'}`}>
+                    <div>
+                      <span className={`text-[10px] block font-bold uppercase mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Google Calendar Integration</span>
+                      <span className={`text-xs font-semibold ${isDark ? 'text-slate-350' : 'text-slate-700'}`}>
+                        📅 {context.booking?.refs?.calendar && context.booking.refs.calendar !== 'No calendar synced' ? 'Successfully synced to calendar' : 'Not synced to Google Calendar'}
+                      </span>
+                    </div>
+                    {context.booking?.confirmed_at && (
+                      <span className={`text-[10px] font-semibold sm:text-right ${isDark ? 'text-slate-500' : 'text-slate-550'}`}>
+                        Confirmed: {new Date(context.booking.confirmed_at).toLocaleDateString()} at {new Date(context.booking.confirmed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* EXTRACTED SLOTS */}
               <div className="premium-card rounded-xl p-5 space-y-3.5">
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
@@ -910,22 +966,68 @@ export default function ChatPage() {
               )}
 
               {context.weather && (
-                <div className="premium-card rounded-xl p-4 space-y-2">
+                <div className="premium-card rounded-xl p-4 space-y-3">
                   <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
-                    isDark ? 'text-indigo-400' : 'text-indigo-705'
+                    isDark ? 'text-indigo-400' : 'text-indigo-700'
                   }`}>
                     <Sun className="h-4.5 w-4.5 text-amber-500" /> Climate Specialist Agent
                   </h4>
-                  <div className={`p-3 rounded-lg border text-xs space-y-2.5 transition-colors ${
+                  <div className={`p-3 rounded-lg border text-xs space-y-3 transition-colors ${
                     isDark ? 'bg-indigo-950/20 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}>
-                    <p className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      ⛅ **Conditions**: {
-                        Array.isArray(context.weather.forecast)
-                          ? context.weather.forecast.map((f: any) => f.condition || 'Clear').filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ')
-                          : (typeof context.weather.forecast === 'string' ? context.weather.forecast : 'Sunny Skies')
-                      } {context.weather.average_temp_c ? `(Avg Temp: ${context.weather.average_temp_c}°C)` : ''}
+                    <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      ⛅ Destination Climate Conditions
                     </p>
+
+                    {/* Horizontal daily weather forecast cards */}
+                    {Array.isArray(context.weather.forecast) && context.weather.forecast.length > 0 && (
+                      <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-thin">
+                        {context.weather.forecast.map((day: any, idx: number) => {
+                          const getWeatherEmoji = (condition: string = '') => {
+                            const cond = condition.toLowerCase();
+                            if (cond.includes('clear') || cond.includes('sunny')) return '☀️';
+                            if (cond.includes('partly cloudy') || cond.includes('few clouds') || cond.includes('cast')) return '🌤️';
+                            if (cond.includes('cloudy') || cond.includes('overcast') || cond.includes('fog')) return '☁️';
+                            if (cond.includes('thunder') || cond.includes('storm')) return '🌩️';
+                            if (cond.includes('rain') || cond.includes('shower') || cond.includes('drizzle')) return '🌧️';
+                            if (cond.includes('snow') || cond.includes('hail') || cond.includes('sleet')) return '❄️';
+                            return '⛅';
+                          };
+
+                          const dateObj = new Date(day.date);
+                          const formattedDate = isNaN(dateObj.getTime())
+                            ? day.date
+                            : dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex-shrink-0 w-28 p-2.5 rounded-lg border text-center transition-all ${
+                                isDark
+                                  ? 'bg-slate-900/60 border-slate-850 hover:border-slate-700'
+                                  : 'bg-white border-slate-205 hover:border-slate-300 shadow-sm'
+                              }`}
+                            >
+                              <p className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {formattedDate}
+                              </p>
+                              <div className="text-xl my-1">{getWeatherEmoji(day.condition)}</div>
+                              <p className={`text-[10px] font-semibold truncate mb-1 ${isDark ? 'text-slate-300' : 'text-slate-650'}`} title={day.condition}>
+                                {day.condition || 'Clear'}
+                              </p>
+                              <p className="text-[10.5px] font-bold text-primary">
+                                {Math.round(day.temp_high_c)}°C / <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-normal`}>{Math.round(day.temp_low_c)}°C</span>
+                              </p>
+                              {day.rain_mm > 0 && (
+                                <p className={`text-[9px] font-bold mt-0.5 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                  🌧️ {day.rain_mm} mm
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {context.weather.reasoning && (
                       <div className={`mt-2 p-2.5 rounded border text-[11px] leading-relaxed transition-colors ${
                         isDark ? 'text-indigo-300 bg-indigo-950/45 border-indigo-900/40' : 'text-indigo-900 bg-indigo-50 border-indigo-120/40'
@@ -947,19 +1049,125 @@ export default function ChatPage() {
               {context.accommodation && (
                 <div className="premium-card rounded-xl p-4 space-y-2">
                   <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
-                    isDark ? 'text-indigo-400' : 'text-indigo-705'
+                    isDark ? 'text-indigo-400' : 'text-indigo-700'
                   }`}>
                     <Building2 className="h-4.5 w-4.5 text-primary" /> Lodging Specialist Agent
                   </h4>
-                  <div className={`p-3 rounded-lg border text-xs space-y-2.5 transition-colors ${
+                  <div className={`p-3 rounded-lg border text-xs space-y-3 transition-colors ${
                     isDark ? 'bg-indigo-950/20 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}>
-                    <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{context.accommodation.recommended || 'Hotel Options matched'}</p>
-                    {context.accommodation.cost_per_night && (
-                      <p className={isDark ? 'text-slate-400' : 'text-slate-600'}>
-                        Estimated Cost: ₹{context.accommodation.cost_per_night.toLocaleString()} / night
-                      </p>
+                    {Array.isArray(context.accommodation.hotels) && context.accommodation.hotels.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          🏨 Compare Lodging Choices
+                        </p>
+                        <div className="flex flex-col gap-2.5">
+                          {context.accommodation.hotels.map((hotel: any, idx: number) => {
+                            const isRecommended = hotel.name === context.accommodation.recommended;
+                            const sortedHotels = [...context.accommodation.hotels].sort((a, b) => a.price_per_night_inr - b.price_per_night_inr);
+                            const isCheapest = hotel.name === sortedHotels[0]?.name;
+                            const isLuxury = hotel.name === sortedHotels[sortedHotels.length - 1]?.name && sortedHotels.length > 1;
+
+                            // Generate stars
+                            const ratingCount = Math.round(hotel.rating || 4.0);
+                            const stars = Array.from({ length: 5 }, (_, i) => i < ratingCount);
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-3 rounded-xl border transition ${
+                                  isRecommended
+                                    ? isDark
+                                      ? 'bg-indigo-955/20 border-primary shadow-md shadow-primary/5'
+                                      : 'bg-indigo-50/40 border-indigo-400 shadow-md shadow-indigo-100/30'
+                                    : isDark
+                                    ? 'bg-slate-900/40 border-slate-850 hover:border-slate-700'
+                                    : 'bg-white border-slate-205 hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-1">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <span className={`font-bold text-xs ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                                        {hotel.name}
+                                      </span>
+                                      
+                                      {/* Badges */}
+                                      {isRecommended && (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500 text-white leading-none">
+                                          Recommended
+                                        </span>
+                                      )}
+                                      {isCheapest && !isRecommended && (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500 text-white leading-none">
+                                          Cheapest
+                                        </span>
+                                      )}
+                                      {isLuxury && !isRecommended && (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white leading-none">
+                                          Premium
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Star Ratings */}
+                                    <div className="flex items-center gap-1">
+                                      <span className="flex text-amber-500 text-[10px]">
+                                        {stars.map((filled, sIdx) => (
+                                          <span key={sIdx}>{filled ? '★' : '☆'}</span>
+                                        ))}
+                                      </span>
+                                      <span className={`text-[9.5px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-505'}`}>
+                                        ({hotel.rating || 4.0}/5 rating)
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-right">
+                                    <p className="text-xs font-bold text-emerald-500">
+                                      ₹{hotel.price_per_night_inr ? hotel.price_per_night_inr.toLocaleString() : 0} <span className={`text-[8.5px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/ night</span>
+                                    </p>
+                                    {hotel.total_cost_inr && (
+                                      <p className={`text-[9.5px] font-semibold mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>
+                                        ₹{hotel.total_cost_inr.toLocaleString()} total
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Amenities list */}
+                                {Array.isArray(hotel.amenities) && hotel.amenities.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {hotel.amenities.slice(0, 5).map((amenity: string, aIdx: number) => (
+                                      <span
+                                        key={aIdx}
+                                        className={`text-[8.5px] font-semibold px-2 py-0.5 rounded-full border ${
+                                          isDark
+                                            ? 'bg-slate-950/50 border-slate-800 text-slate-400'
+                                            : 'bg-slate-50 border-slate-200 text-slate-500'
+                                        }`}
+                                      >
+                                        {amenity}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{context.accommodation.recommended || 'Hotel Options matched'}</p>
+                        {context.accommodation.price_per_night && (
+                          <p className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+                            Estimated Cost: ₹{context.accommodation.price_per_night.toLocaleString()} / night
+                          </p>
+                        )}
+                      </>
                     )}
+
                     {context.accommodation.reasoning && (
                       <div className={`mt-2 p-2.5 rounded border text-[11px] leading-relaxed transition-colors ${
                         isDark ? 'text-indigo-300 bg-indigo-950/45 border-indigo-900/40' : 'text-indigo-900 bg-indigo-50 border-indigo-120/40'
@@ -981,23 +1189,110 @@ export default function ChatPage() {
               {context.transport && (
                 <div className="premium-card rounded-xl p-4 space-y-2">
                   <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
-                    isDark ? 'text-indigo-400' : 'text-indigo-705'
+                    isDark ? 'text-indigo-400' : 'text-indigo-700'
                   }`}>
                     <Car className="h-4.5 w-4.5 text-emerald-450" /> Transit Specialist Agent
                   </h4>
-                  <div className={`p-3 rounded-lg border text-xs space-y-2.5 transition-colors ${
+                  <div className={`p-3 rounded-lg border text-xs space-y-3 transition-colors ${
                     isDark ? 'bg-indigo-955/20 border-slate-800' : 'bg-slate-50 border-slate-205'
                   }`}>
-                    {context.transport.best_option && (
-                      <p className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                        🛫 **Best Option**: {context.transport.best_option}
-                      </p>
+                    {Array.isArray(context.transport.options) && context.transport.options.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          ✈️ Transit Options & Comparisons
+                        </p>
+                        <div className="flex flex-col gap-2.5">
+                          {context.transport.options.map((option: any, idx: number) => {
+                            const optionsList = context.transport.options;
+                            const cheapestOption = optionsList.reduce((lowest: any, curr: any) => curr.cost_inr < lowest.cost_inr ? curr : lowest, optionsList[0]);
+                            const fastestOption = optionsList.reduce((fastest: any, curr: any) => curr.duration_hrs < fastest.duration_hrs ? curr : fastest, optionsList[0]);
+
+                            const isCheapest = option.cost_inr === cheapestOption.cost_inr;
+                            const isFastest = option.duration_hrs === fastestOption.duration_hrs;
+
+                            const renderModeIcon = (mode: string) => {
+                              const icStyle = "h-4 w-4 shrink-0 mt-0.5";
+                              if (mode.toLowerCase() === 'flight') return <Send className={`${icStyle} text-sky-400`} />;
+                              if (mode.toLowerCase() === 'train') return <Clock className={`${icStyle} text-teal-400`} />;
+                              return <Car className={`${icStyle} text-amber-500`} />;
+                            };
+
+                            const getModeLabelPrefix = (mode: string) => {
+                              if (mode.toLowerCase() === 'flight') return '🛫 Flight';
+                              if (mode.toLowerCase() === 'train') return '🚆 Train';
+                              return '🚌 Intercity Bus';
+                            };
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-3 rounded-xl border transition ${
+                                  isDark
+                                    ? 'bg-slate-900/40 border-slate-850 hover:border-slate-700'
+                                    : 'bg-white border-slate-205 hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div className="flex items-start gap-2">
+                                    {renderModeIcon(option.mode)}
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className={`font-bold text-xs ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
+                                          {getModeLabelPrefix(option.mode)}: {option.operator}
+                                        </span>
+
+                                        {/* Badges */}
+                                        {isCheapest && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500 text-white leading-none">
+                                            Cheapest
+                                          </span>
+                                        )}
+                                        {isFastest && (!isCheapest || optionsList.length > 1) && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white leading-none">
+                                            Fastest
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        Schedule: <span className="font-bold">{option.departure || 'N/A'}</span> ➔ <span className="font-bold">{option.arrival || 'N/A'}</span>
+                                      </div>
+                                      
+                                      <div className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-505'}`}>
+                                        Duration: <span className="font-bold">{option.duration_hrs} hrs</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-right">
+                                    <p className="text-xs font-bold text-emerald-500">
+                                      ₹{(option.cost_inr || 0).toLocaleString()}
+                                    </p>
+                                    <p className={`text-[9px] font-normal ${isDark ? 'text-slate-450' : 'text-slate-400'}`}>
+                                      per traveler
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {context.transport.best_option && (
+                          <p className={isDark ? 'text-slate-350' : 'text-slate-700'}>
+                            🛫 **Best Option**: {context.transport.best_option}
+                          </p>
+                        )}
+                        {context.transport.estimated_cost_inr && (
+                          <p className={isDark ? 'text-emerald-400 font-semibold' : 'text-emerald-700 font-bold'}>
+                            Estimated Price: ₹{(context.transport.estimated_cost_inr || 0).toLocaleString()}
+                          </p>
+                        )}
+                      </>
                     )}
-                    {context.transport.price && (
-                      <p className={isDark ? 'text-emerald-400 font-semibold' : 'text-emerald-700 font-bold'}>
-                        Total Price: ₹{context.transport.price.toLocaleString()}
-                      </p>
-                    )}
+
                     {context.transport.reasoning && (
                       <div className={`mt-2 p-2.5 rounded border text-[11px] leading-relaxed transition-colors ${
                         isDark ? 'text-indigo-305 bg-indigo-955/45 border-indigo-900/40' : 'text-indigo-900 bg-indigo-50 border-indigo-120/40'

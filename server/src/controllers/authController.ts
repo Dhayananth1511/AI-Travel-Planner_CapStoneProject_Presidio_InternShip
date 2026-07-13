@@ -7,14 +7,18 @@ import User from '../models/User';
 import logger from '../utils/logger';
 
 // ======================================================
-// Google OAuth2 Client (shared across auth controllers)
-// Redirect URI is the server-side callback endpoint
+// Google OAuth2 Helper — creates a FRESH client per request.
+// NEVER reuse a single singleton — setCredentials() mutates state
+// globally, causing credentials to bleed across concurrent users.
 // ======================================================
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CALENDAR_CLIENT_ID,
-  process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
-  process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
-);
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+
+const createOAuth2Client = () =>
+  new google.auth.OAuth2(
+    process.env.GOOGLE_CALENDAR_CLIENT_ID,
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI
+  );
 
 // Helper: Signs Access & Refresh tokens
 const generateTokens = (userId: string, role: string) => {
@@ -250,14 +254,18 @@ export const googleAuthLogin = (req: Request, res: Response): void => {
 
   const mode = req.query.mode === 'register' ? 'register' : 'login';
   const state = Buffer.from(JSON.stringify({ type: mode })).toString('base64');
-  const authUrl = oauth2Client.generateAuthUrl({
+  // Create a fresh client per request — never use a singleton here
+  const client = createOAuth2Client();
+  const authUrl = client.generateAuthUrl({
     access_type: 'offline',
     scope: [
       'openid',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
-    prompt: 'select_account', // Show account chooser so users can pick their Google account
+    // 'consent' forces Google to always show the full account picker,
+    // preventing cached sessions from silently signing in the wrong account.
+    prompt: 'consent',
     state,
   });
 
@@ -276,7 +284,9 @@ export const googleOAuthInit = (req: Request, res: Response): void => {
   }
 
   const state = Buffer.from(JSON.stringify({ type: 'calendar', userId: req.user?.userId })).toString('base64');
-  const authUrl = oauth2Client.generateAuthUrl({
+  // Create a fresh client per request
+  const client = createOAuth2Client();
+  const authUrl = client.generateAuthUrl({
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/calendar.events'],
     prompt: 'consent',
@@ -327,7 +337,10 @@ export const googleOAuthCallback = async (req: Request, res: Response): Promise<
   }
 
   try {
-    // Exchange authorization code for tokens
+    // Create a fresh per-request OAuth2 client.
+    // This is CRITICAL — using a singleton here would mutate credentials
+    // globally and cause subsequent users to inherit previous users' sessions.
+    const oauth2Client = createOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code as string);
     oauth2Client.setCredentials(tokens);
 
@@ -397,6 +410,18 @@ export const googleOAuthCallback = async (req: Request, res: Response): Promise<
       await user.save();
 
       logger.info('Google Sign-In successful', { userId: user.id, email: user.email });
+
+      // Set the refreshToken as an httpOnly cookie BEFORE redirecting.
+      // This is critical: App.tsx runs restoreSession() on every mount, which
+      // calls /auth/refresh. Without this cookie the refresh returns 401,
+      // triggering logout() and bouncing the user back to /login immediately
+      // after a successful Google sign-in.
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax', // 'lax' (not 'strict') is required for cross-origin redirects
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
 
       // Redirect to a client-side callback page that will store the token
       const params = new URLSearchParams({

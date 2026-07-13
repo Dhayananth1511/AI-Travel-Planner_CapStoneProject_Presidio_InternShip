@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
+import { searchHotelbedsTransfers } from '../mcp-servers/hotelbedsTransfersMCP';
 import { getTransportOptions } from '../mcp-servers/transitMCP';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
@@ -30,7 +31,19 @@ export const transportTool = tool(
     }
 
     logger.debug('Cache MISS — transport options tool fetching from MCP', { cacheKey });
-    const data = await getTransportOptions(origin, destination, travel_date, travelers);
+    let data: any;
+    try {
+      data = await searchHotelbedsTransfers(origin, destination, travel_date, travelers);
+      const fallback = await getTransportOptions(origin, destination, travel_date, travelers);
+      data = {
+        ...fallback,
+        ...data,
+        options: data.options.length > 0 ? data.options : fallback.options,
+        estimated_cost_inr: data.estimated_cost_inr > 0 ? data.estimated_cost_inr : fallback.estimated_cost_inr,
+      };
+    } catch {
+      data = await getTransportOptions(origin, destination, travel_date, travelers);
+    }
 
     // Standalone LLM Reasoning Phase
     let reasoning = '';

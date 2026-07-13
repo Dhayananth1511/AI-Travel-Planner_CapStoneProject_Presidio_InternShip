@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -27,11 +27,20 @@ export default function App() {
   const { setToken, logout, user } = useAuthStore();
   const [authReady, setAuthReady] = useState(false);
 
+  const hasRestored = useRef(false);
+
   // On every app boot / page refresh, silently call /auth/refresh to restore
   // the in-memory accessToken (and user profile) from the httpOnly refresh cookie.
   // We always attempt this — even if sessionStorage was wiped — because the
   // httpOnly cookie survives a full page reload.
+  // IMPORTANT: The useRef guard ensures this only ever runs ONCE on the initial
+  // mount. Without it, SPA navigations trigger re-renders of App, which would
+  // call /auth/refresh again — if the cookie isn't set yet (e.g. right after
+  // a Google OAuth redirect) the request returns 401 → logout() → /login bounce.
   useEffect(() => {
+    if (hasRestored.current) return;
+    hasRestored.current = true;
+
     const restoreSession = async () => {
       try {
         const { data } = await axios.post(

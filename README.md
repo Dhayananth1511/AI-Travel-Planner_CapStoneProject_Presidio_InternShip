@@ -686,9 +686,10 @@ graph TD
     MapsMCP --> Places["Google Places API<br/>(Attractions, Restaurants)"]:::api
     MapsMCP --> Distance["Distance Matrix API<br/>(Travel Times)"]:::api
 
-    TransitMCP --> Amadeus["Amadeus API & Maps Distance<br/>(Real Flights & Modelled Train/Bus)"]:::api
+    TransitMCP --> AviationStack["AviationStack API & Maps Distance<br/>(Real Flights & Modelled Train/Bus)"]:::api
 
-    BookingMCP --> GooglePlacesLodging["Google Places API<br/>(Real Hotel Searches)"]:::api
+    BookingMCP --> HotelbedsHotels["Hotelbeds API<br/>(Real Hotel Inventory & Rates)"]:::api
+    BookingMCP --> GooglePlacesLodging["Google Places API<br/>(Fallback Hotel Search)"]:::api
     BookingMCP --> MockPayment["Mock Payment Gateway<br/>(Simulated Booking Confirmation)"]:::api
 
     CalendarMCP --> GCalendar["Google Calendar API<br/>(Real Event Sync via googleapis)"]:::api
@@ -737,8 +738,9 @@ Each MCP tool exposes a strictly typed JSON schema so the LLM can call it determ
 | Google Maps Geocoding | Via MCP | `maps-mcp-server` |
 | Google Places (Attractions) | Via MCP | `maps-mcp-server` |
 | Distance Matrix | Via MCP | `maps-mcp-server` |
-| Amadeus Flights / Maps Rail | Via MCP | `transit-mcp-server` |
-| Google Places (Lodging) | Via MCP | `booking-mcp-server` |
+| AviationStack Flights / Maps Rail | Via MCP | `transit-mcp-server` |
+| Hotelbeds Hotels | Via MCP | `booking-mcp-server` |
+| Google Places Lodging Fallback | Via MCP | `booking-mcp-server` |
 | Google Calendar | Via MCP | `calendar-mcp-server` |
 | Groq LLM API | Direct (LangChain) | — |
 | MongoDB Atlas | Direct (Mongoose) | — |

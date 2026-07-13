@@ -13,7 +13,7 @@ import logger from '../utils/logger';
 
 const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.3-70b-versatile',
+  model: 'llama-3.1-8b-instant',
   temperature: 0.5,
 });
 
@@ -131,32 +131,72 @@ Ensure you populate tool arguments using the current context: destination="${inp
 
 export async function synthesizeTripPlan(context: TripContext): Promise<string> {
   const systemPrompt = `You are a travel content writer. Create a beautiful, structured markdown travel plan.
-Include: trip overview, weather summary, transport details, hotel, day-by-day schedule, 
-budget breakdown table, and packing tips. Use emojis and formatting.
+Include: trip overview, weather summary, transport details, hotel description, day-by-day schedule overview, 
+budget breakdown table, and packing tips. Use emojis and professional formatting.
 IMPORTANT: Always structure your output with Day 1, Day 2, etc. sections.`;
+
+  // Create a highly compact, token-efficient summary of the context.
+  // Dumping the raw context string causes prompt token bloat, triggering 429 Rate Limits and LLM response truncation.
+  const compactSummary = {
+    destination: context.input.destination,
+    dates: `${context.input.start_date} to ${context.input.end_date}`,
+    travelers: context.input.travelers,
+    budget_limit: context.input.budget_inr,
+    budget_breakdown: context.budget,
+    weather_info: context.weather?.reasoning || 'Check local weather conditions on arrival.',
+    accommodation: context.accommodation?.recommended || 'Comfortable local accommodation',
+    transport: context.transport?.options?.[0]
+      ? {
+          provider: context.transport.options[0].provider,
+          type: context.transport.options[0].type,
+          price_inr: context.transport.options[0].price_inr,
+          duration: context.transport.options[0].duration,
+        }
+      : 'Arranging own transport.',
+    activities_interests: {
+      attractions: (context.activities?.attractions || []).slice(0, 10),
+      restaurants: (context.activities?.restaurants || []).slice(0, 6),
+    },
+    itinerary_days: (context.itinerary?.days || []).map((d: any) => ({
+      day: d.day,
+      date: d.date,
+      title: d.title,
+      daily_total_inr: d.daily_total_inr,
+      weather_note: d.weather_note,
+      highlights: (d.schedule || []).map((item: any) => `${item.time} - ${item.activity} (${item.location})`),
+    })),
+    notes: context.itinerary?.notes || '',
+  };
 
   // Retry up to 2 times if the LLM output is insufficient
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const response = await withRetry(() => llm.invoke([
-      new SystemMessage(systemPrompt),
-      new HumanMessage(JSON.stringify(context, null, 2)),
-    ]));
+    try {
+      const response = await withRetry(
+        () => llm.invoke([
+          new SystemMessage(systemPrompt),
+          new HumanMessage(JSON.stringify(compactSummary, null, 2)),
+        ]),
+        { maxRetries: 4, timeout: 30000 } // Generous timeout for synthesis
+      );
 
-    const output = response.content.toString();
+      const output = response.content.toString();
 
-    // Content validation: must be substantial and contain structured itinerary markers
-    const isSubstantial = output.length >= 200;
-    const hasDateStructure = /day\s*\d+/i.test(output) || /\*\*day/i.test(output);
+      // Content validation: must be substantial and contain structured itinerary markers
+      const isSubstantial = output.length >= 200;
+      const hasDateStructure = /day\s*\d+/i.test(output) || /\*\*day/i.test(output);
 
-    if (isSubstantial && hasDateStructure) {
-      return output;
+      if (isSubstantial && hasDateStructure) {
+        return output;
+      }
+
+      logger.warn(`synthesizeTripPlan output failed content validation (attempt ${attempt}/2)`, {
+        length: output.length,
+        hasDateStructure,
+        preview: output.slice(0, 100),
+      });
+    } catch (err: any) {
+      logger.error(`synthesizeTripPlan error (attempt ${attempt}/2): ${err.message}`);
     }
-
-    logger.warn(`synthesizeTripPlan output failed content validation (attempt ${attempt}/2)`, {
-      length: output.length,
-      hasDateStructure,
-      preview: output.slice(0, 100),
-    });
   }
 
   // Safe fallback: return a minimal but correct plan structure

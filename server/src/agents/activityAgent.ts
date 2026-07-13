@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
+import { searchHotelbedsActivities } from '../mcp-servers/hotelbedsActivitiesMCP';
 import { getPlacesNearby } from '../mcp-servers/mapsMCP';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
@@ -16,7 +17,7 @@ const llm = new ChatGroq({
 });
 
 export const activityTool = tool(
-  async ({ destination, interests, days }) => {
+  async ({ destination, interests, days, travelers }) => {
     const cacheKey = `activities:${destination}:${interests.join('-')}:${days}d`;
 
     try {
@@ -30,7 +31,19 @@ export const activityTool = tool(
     }
 
     logger.debug('Cache MISS — activities tool fetching from MCP', { cacheKey });
-    const data = await getPlacesNearby(destination, interests, days);
+    let data: any;
+    try {
+      data = await searchHotelbedsActivities(destination, interests, days, travelers || 1);
+      const nearby = await getPlacesNearby(destination, interests, days);
+      data = {
+        ...data,
+        restaurants: nearby.restaurants,
+        restaurant_options: (nearby as any).restaurant_options || [],
+        timings: nearby.timings,
+      };
+    } catch {
+      data = await getPlacesNearby(destination, interests, days);
+    }
 
     // Standalone LLM Reasoning Phase
     let reasoning = '';

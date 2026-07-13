@@ -43,7 +43,11 @@ export const createOrUpdateTrip = async (req: Request, res: Response): Promise<v
     const result = await planTrip(message.trim(), userId, tripId as string | undefined, (req as any).requestId);
 
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
+    try {
+      const fs = require('fs');
+      fs.appendFileSync('d:/Presidio Capstone Project/server/errors.log', `[${new Date().toISOString()}] Controller error: ${error?.message || String(error)}\nStack: ${error?.stack}\n`);
+    } catch (err) {}
     logger.error('Trip planning failed', { error, userId: req.user?.userId });
     res.status(500).json({ message: 'Trip planning failed. Please try again.' });
   }
