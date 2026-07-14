@@ -1,0 +1,62 @@
+# ============================================================
+# infrastructure/terraform.tfvars.example
+#
+# INSTRUCTIONS:
+#   1. Copy this file and rename it to: terraform.tfvars
+#   2. Fill in your real values below
+#   3. terraform.tfvars is in .gitignore — NEVER commit it
+#
+# terraform.tfvars is auto-loaded by Terraform when you run:
+#   terraform plan
+#   terraform apply
+# ============================================================
+
+# AWS region — ap-south-1 is Mumbai (best for India)
+aws_region = "ap-south-1"
+
+# Project name prefix for all AWS resource names
+project_name = "travel-planner"
+
+# Name of the Key Pair you created in AWS Console → EC2 → Key Pairs
+# Just the name (e.g. "travel-planner-key") — NOT the file path
+key_pair_name = "travel-planner-key"
+
+# Your Docker Hub username (not email — the username)
+dockerhub_username = "YOUR_DOCKERHUB_USERNAME"
+
+# ── Secrets (sensitive — never share these) ──────────────────
+
+# MongoDB Atlas connection string
+# Get from: Atlas → Database → Connect → Drivers → Copy connection string
+mongo_uri = "mongodb+srv://USERNAME:PASSWORD@cluster0.xxxxx.mongodb.net/travel-planner?retryWrites=true&w=majority"
+
+# Groq API key
+# Get from: console.groq.com → API Keys → Create API key
+groq_api_key = "gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# JWT secrets — generate strong random strings (32+ characters)
+# You can generate them at: https://generate-secret.vercel.app/64
+jwt_access_secret  = "PASTE_LONG_RANDOM_STRING_HERE_32_CHARS_MIN"
+jwt_refresh_secret = "PASTE_DIFFERENT_LONG_RANDOM_STRING_HERE"
+
+# Google Maps / Places API key
+# Get from: console.cloud.google.com → APIs & Services → Credentials
+google_maps_key = "AIzaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# ── Additional Server Configuration (from server/.env) ──
+port                 = 5000
+jwt_access_expires   = "15m"
+jwt_refresh_expires  = "7d"
+hotelbeds_api_key    = "your-hotelbeds-api-key"
+hotelbeds_api_secret = "your-hotelbeds-api-secret"
+hotelbeds_base_url   = "https://api.test.hotelbeds.com"
+activity_api_key     = "your-activity-api-key"
+transfers_api_key    = "your-transfers-api-key"
+
+google_calendar_client_id     = "your-google-calendar-client-id"
+google_calendar_client_secret = "your-google-calendar-client-secret"
+google_calendar_redirect_uri  = "http://localhost:5000/api/auth/google/callback"
+
+aviationstack_api_key = "your-aviationstack-api-key"
+openweather_api_key   = "your-openweather-api-key"
+

@@ -1,0 +1,150 @@
+# ============================================================
+# .github/workflows/cd.yml — CD Pipeline
+#
+# WHEN: Runs when code is pushed/merged to main branch
+# WHY:  Automatically deploys the latest version to AWS
+#
+# Flow:
+#   1. Build + push Docker image to Docker Hub
+#   2. Build React frontend + sync to S3 + invalidate CloudFront cache
+#   3. SSH into EC2 → docker pull latest → restart containers
+#
+# YOU NEVER NEED DOCKER ON YOUR PC — this runner has it built in.
+# ============================================================
+
+name: CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build & Deploy to AWS
+    runs-on: ubuntu-latest  # Ubuntu runner has Docker pre-installed
+
+    steps:
+      # 1. Checkout full source code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Step A: Build + Push Docker Image to Docker Hub ──
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          # DOCKERHUB_TOKEN = Docker Hub access token (not password)
+          # Set in: GitHub repo → Settings → Secrets → Actions
+
+      - name: Set up Docker Buildx (faster multi-platform builds)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server          # Build from server/ directory
+          file: ./server/Dockerfile  # Use our multi-stage Dockerfile
+          push: true                 # Push to Docker Hub
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/travel-planner-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/travel-planner-api:${{ github.sha }}
+          # We tag with both :latest AND the git commit SHA
+          # :latest → always points to newest; :sha → lets you rollback to exact commit
+          cache-from: type=gha      # Use GitHub Actions cache for faster rebuilds
+          cache-to: type=gha,mode=max
+
+      # ── Step B: Build + Deploy React Frontend to S3 ──────
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: cd client && npm ci
+
+      - name: Build React frontend
+        run: cd client && npm run build
+        env:
+          # VITE_API_URL = where the frontend sends API requests
+          # Points to the EC2 Elastic IP on port 5000
+          VITE_API_URL: http://${{ secrets.EC2_HOST }}:5000/api
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Sync frontend build to S3
+        run: |
+          aws s3 sync ./client/dist s3://${{ secrets.S3_BUCKET_NAME }} \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable"
+          # --delete removes old files that no longer exist
+          # --cache-control sets aggressive caching for hashed files
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+          # Forces CloudFront to fetch fresh files from S3
+          # Without this, users see old cached version for up to 24 hours
+
+      # ── Step C: Deploy API to EC2 via SSH ────────────────
+
+      - name: Deploy API container to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.EC2_HOST }}       # Elastic IP
+          username: ec2-user                      # Amazon Linux default user
+          key:      ${{ secrets.EC2_SSH_KEY }}    # Contents of .pem file
+          timeout:  120s
+          script: |
+            set -e
+
+            echo "=== Fetching latest secrets from AWS SSM ==="
+            /home/ec2-user/app/fetch_secrets.sh
+
+            echo "=== Pulling latest API image from Docker Hub ==="
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/travel-planner-api:latest
+
+            echo "=== Restarting API container ==="
+            docker-compose \
+              -f /home/ec2-user/app/docker-compose.prod.yml \
+              up -d --no-deps api
+            # --no-deps → only restart 'api', leave Redis running
+            # up -d     → detached (runs in background)
+
+            echo "=== Waiting for API health check ==="
+            sleep 10
+            docker ps | grep "travel-planner-api" && \
+              echo "✅ API container is running" || \
+              echo "❌ API container failed to start"
+
+            echo "=== Cleaning up old Docker images ==="
+            docker image prune -f
+            # Free up disk space — removes dangling images
+
+            echo "=== Deployment complete! ==="
+
+      # ── Final Step: Verify Deployment ───────────────────
+
+      - name: Verify API health endpoint
+        run: |
+          sleep 15   # Give API time to fully start
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            http://${{ secrets.EC2_HOST }}:5000/health || echo "000")
+          echo "API health check status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Deployment successful! API is healthy."
+          else
+            echo "⚠️  API returned status $HTTP_STATUS — check EC2 logs"
+          fi
+        continue-on-error: true   # Don't fail CD just because health check is slow

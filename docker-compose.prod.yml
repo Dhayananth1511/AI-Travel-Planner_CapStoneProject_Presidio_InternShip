@@ -1,0 +1,87 @@
+# ============================================================
+# docker-compose.prod.yml — Production compose (runs on EC2)
+#
+# This file is placed on the EC2 server by Terraform user_data.
+# GitHub Actions SSHes into EC2 and does:
+#   docker pull <latest image>
+#   docker-compose -f docker-compose.prod.yml up -d
+#
+# Secrets are NOT hardcoded here.
+# The API container reads them from AWS SSM Parameter Store
+# using the EC2 IAM role at startup.
+# ============================================================
+
+version: '3.8'
+
+services:
+
+  # ── Express API + AI Agents ──────────────────────────────
+  api:
+    # Image is pulled from Docker Hub (pushed by GitHub Actions)
+    image: ${DOCKERHUB_USERNAME}/travel-planner-api:latest
+
+    container_name: travel-planner-api
+
+    ports:
+      - "5000:5000"     # EC2 port 5000 → container port 5000
+
+    environment:
+      - NODE_ENV=production
+      - AWS_DEFAULT_REGION=ap-south-1   # For SSM SDK calls (secrets loading)
+      # All other secrets (MONGO_URI, GROQ_API_KEY, JWT secrets, etc.)
+      # are loaded from AWS SSM Parameter Store by the app at startup
+      # See server/src/config/loadSecrets.ts
+
+    # Restart container unless manually stopped
+    restart: unless-stopped
+
+    # Health check — Docker marks container unhealthy if API stops responding
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s      # Check every 30 seconds
+      timeout: 10s       # Wait 10s for response
+      retries: 3         # 3 failures = unhealthy
+      start_period: 40s  # Give 40s on first start (TS compile + DB connect)
+
+    # API depends on Redis being healthy before starting
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    # Logging: send container logs to syslog → AWS CloudWatch agent picks them up
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # Rotate logs at 10MB
+        max-file: "3"     # Keep last 3 log files
+
+  # ── Redis Cache ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: travel-planner-redis
+
+    # Memory limit: 128MB max, evict oldest keys when full (LRU)
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+    # Persist Redis data to disk (survive container restart)
+    volumes:
+      - redis_data:/data
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# Named volumes — data survives container restarts
+volumes:
+  redis_data:
+    driver: local

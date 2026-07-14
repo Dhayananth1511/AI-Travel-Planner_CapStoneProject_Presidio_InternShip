@@ -54,6 +54,9 @@ Desktop.ini
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+# terraform.tfvars contains ALL your real secrets — NEVER commit this!
+terraform.tfvars
+infrastructure/terraform.tfvars
 
 # ===========================
 # Docker
