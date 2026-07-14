@@ -99,6 +99,26 @@ jobs:
 
       # ── Step C: Deploy API to EC2 via SSH ────────────────
 
+      - name: Get GitHub Runner Public IP
+        id: runner-ip
+        run: |
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
+          echo "ip=$RUNNER_IP" >> $GITHUB_OUTPUT
+
+      - name: Open SSH port in AWS Security Group
+        run: |
+          SG_ID=$(aws ec2 describe-security-groups \
+            --filters Name=group-name,Values=travel-planner-api-sg \
+            --query "SecurityGroups[0].GroupId" \
+            --output text --region ap-south-1)
+          aws ec2 authorize-security-group-ingress \
+            --group-id $SG_ID \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.runner-ip.outputs.ip }}/32 \
+            --region ap-south-1
+        # Dynamically whitelist runner IP for SSH
+
       - name: Deploy API container to EC2
         uses: appleboy/ssh-action@v1
         with:
@@ -133,6 +153,21 @@ jobs:
             # Free up disk space — removes dangling images
 
             echo "=== Deployment complete! ==="
+
+      - name: Close SSH port in AWS Security Group
+        if: always() # Run even if SSH deployment step fails to avoid orphan access
+        run: |
+          SG_ID=$(aws ec2 describe-security-groups \
+            --filters Name=group-name,Values=travel-planner-api-sg \
+            --query "SecurityGroups[0].GroupId" \
+            --output text --region ap-south-1)
+          aws ec2 revoke-security-group-ingress \
+            --group-id $SG_ID \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.runner-ip.outputs.ip }}/32 \
+            --region ap-south-1
+
 
       # ── Final Step: Verify Deployment ───────────────────
 
