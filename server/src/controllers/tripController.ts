@@ -363,6 +363,88 @@ export const selectHotel = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// POST /api/trips/:tripId/select-transport — Choose preferred transport option
+export const selectTransport = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { tripId } = req.params;
+    const { operator, mode } = req.body;
+    const userId = req.user!.userId;
+
+    const trip = await Trip.findOne({ sessionId: tripId, userId });
+    if (!trip) {
+      res.status(404).json({ message: 'Trip not found' });
+      return;
+    }
+
+    if (trip.status === 'CONFIRMED') {
+      res.status(400).json({ message: 'This trip has already been confirmed and booked. Modifications are not allowed on confirmed itineraries.' });
+      return;
+    }
+
+    if (!operator || typeof operator !== 'string' || !mode || typeof mode !== 'string') {
+      res.status(400).json({ message: 'Operator and mode are required and must be strings.' });
+      return;
+    }
+
+    const transport = trip.transport || {};
+    const options = Array.isArray(transport.options) ? transport.options : [];
+    const selectedOption = options.find((opt: any) => opt.operator === operator && opt.mode === mode);
+
+    if (!selectedOption) {
+      res.status(400).json({ message: `Transport option "${operator}" (${mode}) was not found in the search options for this trip.` });
+      return;
+    }
+
+    // Update transport values
+    transport.selected_option = selectedOption;
+
+    // Shift selected option to the front of options list
+    const originalIdx = options.findIndex((opt: any) => opt.operator === selectedOption.operator && opt.mode === selectedOption.mode);
+    if (originalIdx > -1) {
+      const [removed] = options.splice(originalIdx, 1);
+      options.unshift(removed);
+    }
+    transport.options = options;
+    trip.transport = transport;
+
+    // Re-run budget agent on the updated context
+    const contextObj = trip.toObject() as any;
+    const newBudget = await runBudgetAgent(contextObj);
+    trip.budget = newBudget;
+
+    if (!newBudget.is_feasible) {
+      trip.status = 'DRAFT';
+      const altMessage = `⚠️ **Budget Constraint Exceeded with transport selection!**\n\nYour selected transport **${selectedOption.operator} (${selectedOption.mode})** exceeds your budget limit of **₹${trip.input.budget_inr?.toLocaleString()}**. The updated total estimated cost is now **₹${newBudget.total_cost_inr?.toLocaleString()}**.\n\nYou can select a cheaper option or adjust your budget ceiling.`;
+      trip.conversationHistory.push({ role: 'assistant', content: altMessage });
+    } else {
+      trip.status = 'PLANNED';
+      const successMessage = `🎫 Selected **${selectedOption.operator} (${selectedOption.mode})**. The updated total trip cost is **₹${newBudget.total_cost_inr.toLocaleString()}** (within your ₹${trip.input.budget_inr?.toLocaleString()} budget).`;
+      trip.conversationHistory.push({ role: 'assistant', content: successMessage });
+    }
+
+    // Save changes to database
+    await Trip.findOneAndUpdate(
+      { sessionId: tripId },
+      {
+        status: trip.status,
+        transport: trip.transport,
+        budget: trip.budget,
+        conversationHistory: trip.conversationHistory
+      }
+    );
+
+    const updatedTrip = await Trip.findOne({ sessionId: tripId });
+
+    res.json({
+      message: 'Transport selection updated successfully!',
+      trip: updatedTrip
+    });
+  } catch (error: any) {
+    logger.error('Failed to process transport selection', { error });
+    res.status(500).json({ message: 'Failed to update transport selection. Please try again.' });
+  }
+};
+
 // GET /api/trips/place-photo — Proxy endpoint to fetch Google Places photos securely
 export const getPlacePhoto = async (req: Request, res: Response): Promise<void> => {
   try {

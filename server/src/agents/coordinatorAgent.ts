@@ -84,55 +84,85 @@ Ensure you populate tool arguments using the current context: destination="${inp
     );
   }
 
-  // 1. Prepare dynamic promises based on LLM-selected tool calls
-  const promises = toolCalls.map(async (toolCall) => {
-    const toolName = toolCall.name;
-    const args = toolCall.args;
+  // 1. Separate non-local tool calls from local transport
+  const firstStageToolCalls = toolCalls.filter(t => t.name !== 'fetch_local_transport');
+  const localTransportToolCall = toolCalls.find(t => t.name === 'fetch_local_transport');
 
-    let rawResult: any;
-    if (toolName === 'fetch_weather') {
-      rawResult = await weatherTool.invoke(args as any);
-    } else if (toolName === 'fetch_transport') {
-      rawResult = await transportTool.invoke(args as any);
-    } else if (toolName === 'fetch_accommodation') {
-      rawResult = await accommodationTool.invoke(args as any);
-    } else if (toolName === 'fetch_activities') {
-      rawResult = await activityTool.invoke(args as any);
-    } else if (toolName === 'fetch_local_transport') {
-      rawResult = await localTransportTool.invoke(args as any);
-    } else {
-      throw new Error(`Unknown tool chosen by LLM: ${toolName}`);
-    }
-
-    const resultString = typeof rawResult === 'string'
-      ? rawResult
-      : (rawResult && 'content' in rawResult ? String(rawResult.content) : JSON.stringify(rawResult));
-
-    return { name: toolName, value: JSON.parse(resultString) };
-  });
-
-  // 2. Concurrently resolve tool execution calls
-  const results = await Promise.allSettled(promises);
-
-  // 3. Update only the fields retrieved by the tool calls, leaving other context fields untouched (preserving context)
   const newContext = { ...context };
 
-  results.forEach((res) => {
-    if (res.status === 'fulfilled') {
-      const { name, value } = res.value;
-      if (name === 'fetch_weather') newContext.weather = value;
-      else if (name === 'fetch_transport') newContext.transport = value;
-      else if (name === 'fetch_accommodation') newContext.accommodation = value;
-      else if (name === 'fetch_activities') newContext.activities = value;
-      else if (name === 'fetch_local_transport') newContext.local_transport = value;
-    } else {
-      const err = res.reason;
-      logger.error('Dynamic tool call failed during concurrent execution', { 
-        errorMessage: err?.message || String(err), 
-        errorStack: err?.stack 
+  if (firstStageToolCalls.length > 0) {
+    const promises = firstStageToolCalls.map(async (toolCall) => {
+      const toolName = toolCall.name;
+      const args = toolCall.args;
+
+      let rawResult: any;
+      if (toolName === 'fetch_weather') {
+        rawResult = await weatherTool.invoke(args as any);
+      } else if (toolName === 'fetch_transport') {
+        rawResult = await transportTool.invoke(args as any);
+      } else if (toolName === 'fetch_accommodation') {
+        rawResult = await accommodationTool.invoke(args as any);
+      } else if (toolName === 'fetch_activities') {
+        rawResult = await activityTool.invoke(args as any);
+      } else {
+        throw new Error(`Unknown tool chosen by LLM: ${toolName}`);
+      }
+
+      const resultString = typeof rawResult === 'string'
+        ? rawResult
+        : (rawResult && 'content' in rawResult ? String(rawResult.content) : JSON.stringify(rawResult));
+
+      return { name: toolName, value: JSON.parse(resultString) };
+    });
+
+    const results = await Promise.allSettled(promises);
+
+    results.forEach((res) => {
+      if (res.status === 'fulfilled') {
+        const { name, value } = res.value;
+        if (name === 'fetch_weather') newContext.weather = value;
+        else if (name === 'fetch_transport') newContext.transport = value;
+        else if (name === 'fetch_accommodation') newContext.accommodation = value;
+        else if (name === 'fetch_activities') newContext.activities = value;
+      } else {
+        const err = res.reason;
+        logger.error('Dynamic tool call failed during concurrent execution', { 
+          errorMessage: err?.message || String(err), 
+          errorStack: err?.stack 
+        });
+      }
+    });
+  }
+
+  // 2. Perform Stage 2 sequential call for local transport using Stage 1 context details
+  if (localTransportToolCall) {
+    const args = { ...localTransportToolCall.args };
+    
+    // Inject real-world hotel location if fetched in Stage 1
+    if (newContext.accommodation?.recommended) {
+      args.hotel_location = newContext.accommodation.recommended;
+    }
+    
+    // Inject core attractions if fetched in Stage 1
+    if (Array.isArray(newContext.activities?.attractions)) {
+      args.attractions = newContext.activities.attractions;
+    } else if (Array.isArray(newContext.activities?.attraction_options)) {
+      args.attractions = newContext.activities.attraction_options.map((a: any) => a.name);
+    }
+
+    try {
+      const rawResult = await localTransportTool.invoke(args as any);
+      const resultString = typeof rawResult === 'string'
+        ? rawResult
+        : (rawResult && 'content' in rawResult ? String(rawResult.content) : JSON.stringify(rawResult));
+      newContext.local_transport = JSON.parse(resultString);
+    } catch (err: any) {
+      logger.error('Stage 2 local transport tool call failed', {
+        errorMessage: err?.message || String(err),
+        errorStack: err?.stack
       });
     }
-  });
+  }
 
   return newContext;
 }

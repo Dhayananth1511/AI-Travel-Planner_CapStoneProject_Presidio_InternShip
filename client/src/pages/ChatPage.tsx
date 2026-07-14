@@ -258,6 +258,30 @@ export default function ChatPage() {
     selectHotelMutation.mutate({ hotelName, category });
   };
 
+  // Mutation for choosing a transport option
+  const selectTransportMutation = useMutation({
+    mutationFn: async (payload: { operator: string; mode: string }) => {
+      const res = await api.post(`/trips/${tripId}/select-transport`, payload);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data.trip) {
+        setContext(data.trip);
+        if (data.trip.conversationHistory) {
+          setMessages(data.trip.conversationHistory);
+        }
+      }
+      toast.success('🎫 Transport preference updated!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update transport selection.');
+    }
+  });
+
+  const handleSelectTransport = (operator: string, mode: string) => {
+    selectTransportMutation.mutate({ operator, mode });
+  };
+
   // Mutation for approving / confirming the trip (HITL Gate)
   const approveMutation = useMutation({
     mutationFn: async () => {
@@ -1122,7 +1146,11 @@ export default function ChatPage() {
                                   {(['budget', 'mid_range', 'luxury'] as const).map((tab) => {
                                     const optionsCount = (context.accommodation.categories[tab] || []).length;
                                     if (optionsCount === 0) return null;
-                                    const tabLabel = tab === 'budget' ? 'Budget' : tab === 'mid_range' ? 'Mid-Range' : 'Luxury';
+                                    const tabLabel = tab === 'budget' 
+                                      ? 'Budget (<₹5k)' 
+                                      : tab === 'mid_range' 
+                                      ? 'Mid-Range (₹5k-₹15k)' 
+                                      : 'Luxury (>₹15k)';
                                     const isActive = lodgingCategoryTab === tab;
                                     return (
                                       <button
@@ -1343,32 +1371,46 @@ export default function ChatPage() {
                               return '🚌 Intercity Bus';
                             };
 
+                            const isSelected = context.transport.selected_option && 
+                              context.transport.selected_option.operator === option.operator && 
+                              context.transport.selected_option.mode === option.mode;
+                            const isCurrentlyActive = isSelected || (!context.transport.selected_option && idx === 0);
+
                             return (
                               <div
                                 key={idx}
-                                className={`p-3 rounded-xl border transition ${
-                                  isDark
+                                className={`p-3 rounded-xl border transition flex flex-col gap-2.5 ${
+                                  isCurrentlyActive
+                                    ? isDark
+                                      ? 'bg-indigo-955/20 border-primary shadow-md shadow-primary/5'
+                                      : 'bg-indigo-50/40 border-indigo-400 shadow-md shadow-indigo-100/30'
+                                    : isDark
                                     ? 'bg-slate-900/40 border-slate-850 hover:border-slate-700'
-                                    : 'bg-white border-slate-205 hover:border-slate-300'
+                                    : 'bg-white border-slate-205 hover:border-slate-350'
                                 }`}
                               >
                                 <div className="flex justify-between items-start">
                                   <div className="flex items-start gap-2">
                                     {renderModeIcon(option.mode)}
                                     <div className="space-y-1">
-                                      <div className="flex flex-wrap items-center gap-1.5">
+                                      <div className="flex flex-wrap items-center gap-1.5 font-sans">
                                         <span className={`font-bold text-xs ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
                                           {getModeLabelPrefix(option.mode)}: {option.operator}
                                         </span>
 
                                         {/* Badges */}
-                                        {isCheapest && (
-                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500 text-white leading-none">
+                                        {isCurrentlyActive && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500 text-white leading-none flex items-center gap-0.5 animate-fadeIn">
+                                            <Check className="h-2.5 w-2.5" /> Selected
+                                          </span>
+                                        )}
+                                        {isCheapest && !isCurrentlyActive && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 leading-none">
                                             Cheapest
                                           </span>
                                         )}
-                                        {isFastest && (!isCheapest || optionsList.length > 1) && (
-                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white leading-none">
+                                        {isFastest && !isCurrentlyActive && (!isCheapest || optionsList.length > 1) && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 leading-none">
                                             Fastest
                                           </span>
                                         )}
@@ -1381,18 +1423,49 @@ export default function ChatPage() {
                                       <div className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-505'}`}>
                                         Duration: <span className="font-bold">{option.duration_hrs} hrs</span>
                                       </div>
+                                      {Array.isArray(option.amenities) && option.amenities.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 pt-1">
+                                          {option.amenities.slice(0, 3).map((am: string, amIdx: number) => (
+                                            <span key={amIdx} className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full border ${isDark ? 'bg-slate-950/40 border-slate-805 text-slate-405' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                                              {am}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
 
-                                  <div className="text-right">
+                                  <div className="text-right whitespace-nowrap">
                                     <p className="text-xs font-bold text-emerald-500">
                                       ₹{(option.cost_inr || 0).toLocaleString()}
                                     </p>
                                     <p className={`text-[9px] font-normal ${isDark ? 'text-slate-450' : 'text-slate-400'}`}>
-                                      per traveler
+                                      ₹{(option.cost_per_traveler || 0).toLocaleString()} each
                                     </p>
                                   </div>
                                 </div>
+
+                                {/* Choose Option Button */}
+                                {!isCurrentlyActive && context.status !== 'CONFIRMED' && (
+                                  <button
+                                    type="button"
+                                    disabled={selectTransportMutation.isPending || context.status === 'CONFIRMED'}
+                                    onClick={() => handleSelectTransport(option.operator, option.mode)}
+                                    className={`w-full py-1.5 rounded-lg text-xs font-bold border transition text-center flex items-center justify-center gap-1 cursor-pointer select-none ${
+                                      isDark
+                                        ? 'bg-indigo-950/40 hover:bg-primary/20 border-indigo-900/40 text-indigo-300 hover:text-white'
+                                        : 'bg-indigo-50/50 hover:bg-primary/10 border-indigo-200 text-indigo-700 hover:text-indigo-805'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {selectTransportMutation.isPending ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Selecting Transit...
+                                      </>
+                                    ) : (
+                                      'Choose Option'
+                                    )}
+                                  </button>
+                                )}
                               </div>
                             );
                           })}
@@ -1544,7 +1617,7 @@ export default function ChatPage() {
                                     
                                     {/* Reviews Count */}
                                     {item.user_ratings_total !== undefined && (
-                                      <span className={`text-[8.5px] font-semibold font-mono ${isDark ? 'text-slate-500' : 'text-slate-450'}`}>
+                                      <span className={`text-[8.5px] font-semibold font-mono ${isDark ? 'text-slate-500' : 'text-slate-455'}`}>
                                         ({item.user_ratings_total.toLocaleString()} reviews)
                                       </span>
                                     )}
@@ -1556,6 +1629,89 @@ export default function ChatPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {context.local_transport && (
+                <div className="premium-card rounded-xl p-4 space-y-2">
+                  <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
+                    isDark ? 'text-indigo-400' : 'text-indigo-700'
+                  }`}>
+                    <Navigation className="h-4.5 w-4.5 text-primary animate-pulse" /> Local Logistics & Distances
+                  </h4>
+                  <div className={`p-3 rounded-lg border text-xs space-y-3.5 transition-colors ${
+                    isDark ? 'bg-indigo-955/20 border-slate-800' : 'bg-slate-50 border-slate-205'
+                  }`}>
+                    
+                    {/* Distance from hotel to attractions */}
+                    {Array.isArray(context.local_transport.distances_from_hotel) && context.local_transport.distances_from_hotel.length > 0 && (
+                      <div className="space-y-2">
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          🛣️ Hotel to Attraction Distances (Estimated)
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {context.local_transport.distances_from_hotel.map((item: any, idx: number) => (
+                            <div key={idx} className={`p-2 rounded-lg border flex flex-col justify-between ${isDark ? 'bg-slate-900/60 border-slate-850' : 'bg-white border-slate-205'}`}>
+                              <span className={`font-bold text-[10.5px] line-clamp-1 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{item.attraction}</span>
+                              <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-100/5 dark:border-slate-805">
+                                <span className={`text-[9.5px] ${isDark ? 'text-slate-450' : 'text-slate-500'}`}>Distance:</span>
+                                <span className="text-[10px] font-bold text-primary">{item.distance_text || `${item.distance_km} km`}</span>
+                              </div>
+                              {item.duration_text && (
+                                <div className="flex justify-between items-center text-[9.5px] text-slate-500 mt-0.5">
+                                  <span>Travel Time:</span>
+                                  <span>{item.duration_text}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mode Estimates */}
+                    {Array.isArray(context.local_transport.cab_estimates) && context.local_transport.cab_estimates.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-150/10 dark:border-slate-800">
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          🛺 Multimodal Local Transport Pricing (Per Km)
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {context.local_transport.cab_estimates.map((est: any, idx: number) => {
+                            const renderLocalModeIcon = (mode: string) => {
+                              const size = "h-3.5 w-3.5";
+                              if (mode.toLowerCase().includes('cab') || mode.toLowerCase().includes('taxi')) return <Car className={`${size} text-sky-400`} />;
+                              if (mode.toLowerCase().includes('auto')) return <Navigation className={`${size} text-amber-500`} />;
+                              if (mode.toLowerCase().includes('bike') || mode.toLowerCase().includes('motorcycle')) return <Sparkles className={`${size} text-emerald-450`} />;
+                              return <Navigation className={`${size} text-purple-400`} />;
+                            };
+                            return (
+                              <div key={idx} className={`p-2 rounded-lg border text-center flex flex-col items-center justify-between gap-1 ${isDark ? 'bg-slate-900/60 border-slate-850' : 'bg-white border-slate-205'}`}>
+                                <div className="p-1 rounded-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+                                  {renderLocalModeIcon(est.mode)}
+                                </div>
+                                <span className={`font-bold text-[9.5px] line-clamp-1 block ${isDark ? 'text-slate-350' : 'text-slate-655'}`}>{est.mode}</span>
+                                <div className="text-[10px] font-bold text-emerald-500 mt-1">₹{est.rate_per_km}/km</div>
+                                <span className={`text-[8.5px] ${isDark ? 'text-slate-500' : 'text-slate-455'}`}>Base: ₹{est.base_fare}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Daily Heuristics */}
+                    {context.local_transport.daily_budget_estimate && (
+                      <div className={`mt-2 p-2.5 rounded border flex items-center justify-between text-[11px] leading-relaxed transition-colors ${
+                        isDark ? 'text-indigo-305 bg-indigo-955/45 border-indigo-900/40' : 'text-indigo-900 bg-indigo-50 border-indigo-120/40'
+                      }`}>
+                        <div className="flex items-center gap-1.5 justify-between w-full">
+                          <span className="font-semibold flex items-center gap-1">🗺️ Estimated Local Transport Cost per day:</span>
+                          <span className="font-bold text-emerald-500 text-xs">₹{context.local_transport.daily_budget_estimate.toLocaleString()} / day</span>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               )}

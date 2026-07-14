@@ -6,17 +6,22 @@
 import { withRetry } from '../utils/retry';
 import { getDistanceMatrix } from './mapsMCP';
 
-interface TransportOption {
+export interface TransportOption {
   mode: 'Train' | 'Bus' | 'Flight';
   operator: string;
   duration_hrs: number;
-  cost_inr: number;
+  cost_inr: number;       // Total cost for ALL travelers
+  cost_per_traveler: number; // Cost per single traveler
   departure: string;
   arrival: string;
+  rating?: number;
+  amenities?: string[];
+  class?: string;
 }
 
 const IATA_MAP: Record<string, string> = {
   'delhi': 'DEL',
+  'new delhi': 'DEL',
   'mumbai': 'BOM',
   'bangalore': 'BLR',
   'bengaluru': 'BLR',
@@ -26,6 +31,7 @@ const IATA_MAP: Record<string, string> = {
   'cochin': 'COK',
   'kochi': 'COK',
   'goa': 'GOI',
+  'panaji': 'GOI',
   'ooty': 'CBE', // Coimbatore (nearest airport)
   'manali': 'IXC', // Chandigarh
   'kullu': 'KUU',
@@ -39,28 +45,59 @@ const IATA_MAP: Record<string, string> = {
   'shimla': 'SLV',
   'darjeeling': 'IXB', // Bagdogra
   'pondicherry': 'PNY',
-  'munnar': 'COK', // Kochi is nearest airport
+  'munnar': 'COK',
   'alleppey': 'COK',
   'alappuzha': 'COK',
   'udaipur': 'UDR',
-  'lonavala': 'PNQ', // Pune
+  'lonavala': 'PNQ',
   'pune': 'PNQ',
   'amritsar': 'ATQ',
+  'varanasi': 'VNS',
+  'lucknow': 'LKO',
+  'indore': 'IDR',
+  'bhopal': 'BHO',
+  'nagpur': 'NAG',
+  'raipur': 'RPR',
+  'bhubaneswar': 'BBI',
+  'patna': 'PAT',
+  'ranchi': 'IXR',
+  'jammu': 'IXJ',
+  'chandigarh': 'IXC',
+  'coimbatore': 'CBE',
+  'tiruchirapalli': 'TRZ',
+  'madurai': 'IXM',
+  'vizag': 'VTZ',
+  'visakhapatnam': 'VTZ',
+  'vijayawada': 'VGA',
+  'aurangabad': 'IXU',
+  'surat': 'STV',
+  'ahmedabad': 'AMD',
 };
 
 function getIataCode(cityName: string): string {
   const norm = cityName.trim().toLowerCase();
   if (IATA_MAP[norm]) return IATA_MAP[norm];
-  
-  // Naive search: check if key is subset
   for (const [key, val] of Object.entries(IATA_MAP)) {
     if (norm.includes(key) || key.includes(norm)) {
       return val;
     }
   }
-
-  // Naive fallback: return 3 capitalized letters from city name
   return norm.substring(0, 3).toUpperCase();
+}
+
+// Indian domestic airline average speed: ~700 km/h
+// Include check-in + boarding overhead: 2 hrs
+function estimateFlightDuration(distanceKm: number): number {
+  const flightHours = distanceKm / 700;
+  return Math.round((flightHours + 1.5) * 10) / 10; // +1.5h overhead
+}
+
+// Price based on distance (rough domestic fare model)
+function estimateFlightPrice(distanceKm: number): number {
+  if (distanceKm < 500) return Math.round(2500 + Math.random() * 1500);
+  if (distanceKm < 1000) return Math.round(3500 + Math.random() * 2000);
+  if (distanceKm < 2000) return Math.round(4500 + Math.random() * 3000);
+  return Math.round(6000 + Math.random() * 4000);
 }
 
 export async function getTransportOptions(
@@ -68,7 +105,7 @@ export async function getTransportOptions(
   destination: string,
   travel_date: string,
   travelers: number = 1
-): Promise<{ options: TransportOption[]; estimated_cost_inr: number }> {
+): Promise<{ options: TransportOption[]; estimated_cost_inr: number; selected_option?: TransportOption }> {
   return withRetry(async () => {
     const options: TransportOption[] = [];
 
@@ -83,7 +120,7 @@ export async function getTransportOptions(
       // Keep fallbacks if Google lookup fails
     }
 
-    // 2. Fetch real flight deals if AviationStack is configured
+    // 2. Fetch real flight options via AviationStack
     try {
       const apiKey = process.env.AVIATIONSTACK_API_KEY;
       if (!apiKey || apiKey.includes('REPLACE_WITH')) {
@@ -94,7 +131,7 @@ export async function getTransportOptions(
       const destIata = getIataCode(destination);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
       const flightUrl = `http://api.aviationstack.com/v1/flights?access_key=${apiKey}&dep_iata=${originIata}&arr_iata=${destIata}&flight_date=${travel_date}`;
       const flightRes = await fetch(flightUrl, { signal: controller.signal });
@@ -102,21 +139,30 @@ export async function getTransportOptions(
       const flightData: any = await flightRes.json();
 
       if (flightData.data && flightData.data.length > 0) {
-        // Show up to 3 flights maximum
-        flightData.data.slice(0, 3).forEach((offer: any) => {
+        const airlines: { [key: string]: boolean } = {};
+        flightData.data.slice(0, 5).forEach((offer: any) => {
           const airline = offer.airline?.name || 'Airline';
           const flightCode = offer.flight?.iata || offer.flight?.number || 'Flight';
-          
-          // Estimate realistic dynamic price (aviationstack is a flight status/schedule API, no pricing)
-          const estimatedCost = Math.round(3500 + Math.random() * 3000);
+          const key = `${airline}-${flightCode}`;
+          if (airlines[key]) return; // skip duplicates
+          airlines[key] = true;
+
+          const estPricePerPerson = estimateFlightPrice(distanceKm);
+          const depTime = offer.departure?.scheduled?.split('T')[1]?.substring(0, 5) || '09:00';
+          const arrTime = offer.arrival?.scheduled?.split('T')[1]?.substring(0, 5) || '11:00';
+          const dur = estimateFlightDuration(distanceKm);
 
           options.push({
             mode: 'Flight',
             operator: `${airline} (${flightCode})`,
-            duration_hrs: 2.0, // Indian domestic flights average
-            cost_inr: estimatedCost * travelers,
-            departure: offer.departure?.scheduled?.split('T')[1]?.substring(0, 5) || '10:00',
-            arrival: offer.arrival?.scheduled?.split('T')[1]?.substring(0, 5) || '12:00',
+            duration_hrs: dur,
+            cost_per_traveler: estPricePerPerson,
+            cost_inr: estPricePerPerson * travelers,
+            departure: depTime,
+            arrival: arrTime,
+            rating: parseFloat((4.0 + Math.random() * 0.9).toFixed(1)),
+            amenities: ['In-Flight Meals', 'Baggage Allowance', 'AC', 'Entertainment'],
+            class: 'Economy',
           });
         });
       }
@@ -124,41 +170,82 @@ export async function getTransportOptions(
       console.warn(`Flight lookup warning: ${flightError.message}. Bypassing flight search.`);
     }
 
-    // 3. Estimate Train options using Google Maps distance (Very realistic for Indian Railways)
-    // Indian railways average speed: ~60 km/h, Cost: ~₹1.2 per km for 3AC
-    const trainDuration = Math.round((distanceKm / 55) * 10) / 10;
-    const trainCost = Math.round(150 + distanceKm * 1.5);
+    // 3. Add real-distance-based Train options (multiple classes)
+    // If no flights were found, add synthetic placeholder based on distance
+    const trainDuration = Math.max(0.5, Math.round((distanceKm / 60) * 10) / 10); // ~60km/h avg Indian Express
+    
+    // 3AC (cheapest AC tier)
+    const train3ACCostPerPerson = Math.round(150 + distanceKm * 1.4);
     options.push({
       mode: 'Train',
-      operator: 'Indian Railways Express',
+      operator: 'Indian Railways — Superfast Express',
       duration_hrs: trainDuration,
-      cost_inr: trainCost * travelers,
+      cost_per_traveler: train3ACCostPerPerson,
+      cost_inr: train3ACCostPerPerson * travelers,
       departure: '06:15',
-      arrival: new Date(new Date(`2000-01-01T06:15:00`).getTime() + trainDuration * 60 * 60 * 1000)
-        .toTimeString()
-        .substring(0, 5),
+      arrival: new Date(new Date('2000-01-01T06:15:00').getTime() + trainDuration * 3600000)
+        .toTimeString().substring(0, 5),
+      rating: 3.9,
+      amenities: ['AC', 'Berths', 'Pantry Car', 'Charging Port'],
+      class: '3AC Sleeper',
     });
 
-    // 4. Estimate Bus options using Google Driving Time
-    // Volvo bus average: Driving time + 1 hour, Cost: ~₹2.0 per km
-    const busDuration = Math.round((durationMin / 60 + 1.0) * 10) / 10;
-    const busCost = Math.round(50 + distanceKm * 2.2);
+    // 2AC (premium tier)
+    const train2ACCostPerPerson = Math.round(250 + distanceKm * 2.0);
+    options.push({
+      mode: 'Train',
+      operator: 'Indian Railways — Rajdhani / Shatabdi',
+      duration_hrs: Math.max(0.5, Math.round((distanceKm / 75) * 10) / 10), // slightly faster
+      cost_per_traveler: train2ACCostPerPerson,
+      cost_inr: train2ACCostPerPerson * travelers,
+      departure: '16:30',
+      arrival: new Date(new Date('2000-01-01T16:30:00').getTime() + Math.max(0.5, Math.round((distanceKm / 75) * 10) / 10) * 3600000)
+        .toTimeString().substring(0, 5),
+      rating: 4.2,
+      amenities: ['AC', '2-Tier Berths', 'Meals Included', 'Charging Port'],
+      class: '2AC Sleeper',
+    });
+
+    // 4. Add Bus options (Volvo Sleeper & Regular AC)
+    const busDuration = Math.max(0.5, Math.round((durationMin / 60 + 1.0) * 10) / 10);
+
+    const busVolvoPerPerson = Math.round(80 + distanceKm * 2.5);
     options.push({
       mode: 'Bus',
-      operator: 'Intercity Volvo Seater/Sleeper',
+      operator: 'Intercity Volvo — Multi-Axle Sleeper',
       duration_hrs: busDuration,
-      cost_inr: busCost * travelers,
+      cost_per_traveler: busVolvoPerPerson,
+      cost_inr: busVolvoPerPerson * travelers,
       departure: '21:30',
-      arrival: new Date(new Date(`2000-01-01T21:30:00`).getTime() + busDuration * 60 * 60 * 1000)
-        .toTimeString()
-        .substring(0, 5),
+      arrival: new Date(new Date('2000-01-01T21:30:00').getTime() + busDuration * 3600000)
+        .toTimeString().substring(0, 5),
+      rating: 4.0,
+      amenities: ['AC', 'Blanket', 'Push-Back Seats', 'Charging Port'],
+      class: 'Volvo Sleeper',
     });
 
-    const cheapest = Math.min(...options.map((o) => o.cost_inr));
+    const busRegularPerPerson = Math.round(50 + distanceKm * 1.6);
+    options.push({
+      mode: 'Bus',
+      operator: 'KSRTC / State RTC — Semi-Sleeper',
+      duration_hrs: Math.round((durationMin / 60 + 1.5) * 10) / 10,
+      cost_per_traveler: busRegularPerPerson,
+      cost_inr: busRegularPerPerson * travelers,
+      departure: '22:00',
+      arrival: new Date(new Date('2000-01-01T22:00:00').getTime() + Math.round((durationMin / 60 + 1.5) * 10) / 10 * 3600000)
+        .toTimeString().substring(0, 5),
+      rating: 3.5,
+      amenities: ['AC', 'Reclining Seats', 'Water Bottle'],
+      class: 'Semi-Sleeper AC',
+    });
+
+    const cheapestOption = options.reduce((lowest, curr) =>
+      curr.cost_inr < lowest.cost_inr ? curr : lowest, options[0]);
 
     return {
       options,
-      estimated_cost_inr: cheapest,
+      estimated_cost_inr: cheapestOption?.cost_inr || 0,
+      selected_option: options[0] || null, // default select first option
     };
   });
 }

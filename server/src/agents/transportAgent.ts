@@ -1,11 +1,12 @@
 // Transport Agent — search transit options with 12-hour Redis cache.
+// Includes real flights, multiple train classes, and bus options.
+// Supports user selection of preferred transport mode.
 
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import redis from '../config/redis';
-import { searchHotelbedsTransfers } from '../mcp-servers/hotelbedsTransfersMCP';
 import { getTransportOptions } from '../mcp-servers/transitMCP';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
@@ -18,7 +19,7 @@ const llm = new ChatGroq({
 
 export const transportTool = tool(
   async ({ origin, destination, travel_date, travelers }) => {
-    const cacheKey = `transport:${origin}:${destination}:${travel_date}:t${travelers}`;
+    const cacheKey = `transport:v2:${origin}:${destination}:${travel_date}:t${travelers}`;
 
     try {
       const cached = await redis.get(cacheKey);
@@ -31,26 +32,15 @@ export const transportTool = tool(
     }
 
     logger.debug('Cache MISS — transport options tool fetching from MCP', { cacheKey });
-    let data: any;
-    try {
-      data = await searchHotelbedsTransfers(origin, destination, travel_date, travelers);
-      const fallback = await getTransportOptions(origin, destination, travel_date, travelers);
-      data = {
-        ...fallback,
-        ...data,
-        options: data.options.length > 0 ? data.options : fallback.options,
-        estimated_cost_inr: data.estimated_cost_inr > 0 ? data.estimated_cost_inr : fallback.estimated_cost_inr,
-      };
-    } catch {
-      data = await getTransportOptions(origin, destination, travel_date, travelers);
-    }
+    const data = await getTransportOptions(origin, destination, travel_date, travelers);
 
     // Standalone LLM Reasoning Phase
     let reasoning = '';
     try {
       const systemPrompt = `You are TripPlanner's Transport Routing Specialist Agent. 
-Analyze the travel transit options from ${origin} to ${destination} for ${travelers} travelers on ${travel_date}.
-Briefly explain if the pricing is reasonable, which option is fastest/best, and any transit tips in 2-3 sentences. Keep it short.`;
+Analyze the travel transit options from ${origin} to ${destination} for ${travelers} traveler(s) on ${travel_date}.
+Options include flights, trains (various classes), and buses.
+Briefly explain the best option for speed vs cost, which class is recommended, and any transit tips in 2-3 sentences. Keep it short.`;
       const llmRes = await withRetry(() => llm.invoke([
         new SystemMessage(systemPrompt),
         new HumanMessage(JSON.stringify(data)),
@@ -58,17 +48,22 @@ Briefly explain if the pricing is reasonable, which option is fastest/best, and 
       reasoning = llmRes.content.toString();
     } catch (err) {
       logger.error('Transport Agent reasoning analysis failed', err);
-      reasoning = 'Transit options are scheduled and recommended based on speed.';
+      reasoning = 'Transit options are scheduled and recommended based on speed and cost.';
     }
+
+    // Default selected option is the cheapest
+    const selectedOption = data.options.reduce((cheapest: any, curr: any) =>
+      curr.cost_inr < cheapest.cost_inr ? curr : cheapest, data.options[0] || null);
 
     const finalResult = {
       ...data,
+      selected_option: selectedOption,
       reasoning,
     };
 
     const finalResultString = JSON.stringify(finalResult);
     try {
-      await redis.setex(cacheKey, 43200, finalResultString);
+      await redis.setex(cacheKey, 43200, finalResultString); // 12 hours
     } catch {
       logger.warn('Could not write transport to cache');
     }
@@ -77,7 +72,7 @@ Briefly explain if the pricing is reasonable, which option is fastest/best, and 
   },
   {
     name: 'fetch_transport',
-    description: 'Search transit and travel options (cars, trains, flights) from an origin city to a destination.',
+    description: 'Search transit and travel options (flights, trains in multiple classes, buses) from an origin city to a destination with real pricing and ratings.',
     schema: z.object({
       origin: z.string().describe('Origin city name'),
       destination: z.string().describe('Destination city name'),

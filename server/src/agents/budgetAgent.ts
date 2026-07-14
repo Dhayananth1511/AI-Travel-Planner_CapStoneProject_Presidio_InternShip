@@ -54,6 +54,14 @@ function calculateTripDays(input: TripContext['input']): number {
 }
 
 function getCheapestTransportCost(transport: TripContext['transport']): { cost: number; mode?: string; operator?: string } {
+  if (transport?.selected_option) {
+    return {
+      cost: parseFirstNumber(transport.selected_option.cost_inr),
+      mode: transport.selected_option.mode,
+      operator: transport.selected_option.operator,
+    };
+  }
+
   const options = Array.isArray(transport?.options) ? transport.options : [];
 
   if (options.length > 0) {

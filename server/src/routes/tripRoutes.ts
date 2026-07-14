@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth';
 import {
   createOrUpdateTrip, approveTrip, rejectTrip,
   getUserTrips, getTripById, cancelTrip, selectHotel,
-  getPlacePhoto
+  getPlacePhoto, selectTransport
 } from '../controllers/tripController';
 
 const router = Router();
@@ -20,6 +20,7 @@ router.get('/:tripId', getTripById);
 router.post('/:tripId/approve', approveTrip);
 router.post('/:tripId/reject', rejectTrip);
 router.post('/:tripId/select-hotel', selectHotel);
+router.post('/:tripId/select-transport', selectTransport);
 router.delete('/:tripId', cancelTrip);
 
 export default router;
