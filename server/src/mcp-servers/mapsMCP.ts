@@ -14,10 +14,11 @@ export async function getPlacesNearby(
 ): Promise<{ 
   attractions: string[]; 
   restaurants: string[]; 
-  restaurant_options: Array<{ name: string; rating: number; price_level?: number; user_ratings_total?: number }>; 
-  attraction_options: Array<{ name: string; rating: number; user_ratings_total?: number; photo_reference?: string | null; place_id?: string | null; vicinity?: string | null; types?: string[] }>;
+  restaurant_options: Array<{ name: string; rating: number; price_level?: number; user_ratings_total?: number; source_type?: string }>; 
+  attraction_options: Array<{ name: string; rating: number; user_ratings_total?: number; photo_reference?: string | null; place_id?: string | null; vicinity?: string | null; types?: string[]; source_type?: string }>;
   timings: string; 
   entry_fees: string; 
+  source_status?: 'google_places_live' | 'live_fetch_failed';
 }> {
   if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes('REPLACE_WITH')) {
     throw new Error('Google Maps API Key is missing or not configured. Please set GOOGLE_MAPS_API_KEY in your environment variables.');
@@ -50,6 +51,7 @@ export async function getPlacesNearby(
         place_id: p.place_id || null,
         vicinity: p.vicinity || null,
         types: p.types || [],
+        source_type: 'google_places',
       }));
 
       // Search for restaurants
@@ -62,6 +64,7 @@ export async function getPlacesNearby(
         rating: p.rating || 0,
         price_level: p.price_level,
         user_ratings_total: p.user_ratings_total,
+        source_type: 'google_places',
       })) || [];
       const restaurants = restaurantOptions.map((restaurant: any) => restaurant.name);
 
@@ -74,48 +77,16 @@ export async function getPlacesNearby(
         entry_fees: `₹${100 + Math.floor(Math.random() * 300)} per person (estimated)`,
       };
     } catch (err: any) {
-      console.warn(`Places/Geocoding API failed: ${err.message}. Using defensive fallback activities for ${destination}.`);
-      
-      const fallbackAttractions = [
-        `${destination} City Center & Shopping District`,
-        `${destination} Historic Old Town & Heritage Site`,
-        `${destination} Nature Reserve & Botanical Gardens`,
-        `${destination} Panoramic Viewpoint & Scenic Trail`,
-        `Local Museum & Arts Gallery of ${destination}`
-      ].slice(0, Math.min(days * 2, 5));
-
-      const fallbackRestaurantOptions = [
-        { name: `${destination} Spice Garden`, rating: 4.5, price_level: 2, user_ratings_total: 120 },
-        { name: `The Culinary Hub @ ${destination}`, rating: 4.3, price_level: 2, user_ratings_total: 80 },
-        { name: `Heritage Kitchen`, rating: 4.6, price_level: 3, user_ratings_total: 190 },
-        { name: `Royal Tavern & Lounge`, rating: 4.2, price_level: 2, user_ratings_total: 65 }
-      ];
-
-      const fallbackImages = [
-        'https://images.unsplash.com/photo-1548013146-72479768bbfd?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1590076247563-7ee70322d9ee?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1554034483-04fda0d3507b?auto=format&fit=crop&w=600&q=80',
-      ];
-
-      const fallbackAttractionOptions = fallbackAttractions.map((name, idx) => ({
-        name,
-        rating: parseFloat((4.0 + (idx * 0.2) % 0.9).toFixed(1)),
-        user_ratings_total: 100 + Math.floor(Math.random() * 400),
-        photo_reference: fallbackImages[idx % fallbackImages.length],
-        place_id: `fallback-${idx}`,
-        vicinity: `${destination} Tourist Area`,
-        types: ['tourist_attraction', 'point_of_interest'],
-      }));
+      console.warn(`Places/Geocoding API failed: ${err.message}. Returning no live activity listings for ${destination}.`);
 
       return {
-        attractions: fallbackAttractions,
-        restaurants: fallbackRestaurantOptions.map(r => r.name),
-        restaurant_options: fallbackRestaurantOptions,
-        attraction_options: fallbackAttractionOptions,
-        timings: '09:00 AM - 06:00 PM (general)',
-        entry_fees: `₹150 per person (estimated)`,
+        attractions: [],
+        restaurants: [],
+        restaurant_options: [],
+        attraction_options: [],
+        timings: 'Unavailable from live provider',
+        entry_fees: 'Unavailable from live provider',
+        source_status: 'live_fetch_failed',
       };
     }
   });

@@ -6,6 +6,7 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { searchHotelbedsActivities } from '../mcp-servers/hotelbedsActivitiesMCP';
 import { getPlacesNearby } from '../mcp-servers/mapsMCP';
+import { isHotelbedsConfigured } from '../mcp-servers/hotelbedsClient';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 
@@ -15,22 +16,108 @@ const llm = new ChatGroq({
   temperature: 0.3,
 });
 
+function extractJsonObject(text: string): any {
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON object found in LLM recommendation fallback');
+  return JSON.parse(match[0]);
+}
+
+async function generateRecommendationFallback(destination: string, interests: string[], days: number) {
+  const fallbackPrompt = `Return ONLY valid JSON for destination-aware travel recommendations when live provider data is unavailable.
+Schema:
+{
+  "attractions": [{ "name": "string", "vicinity": "string", "rating": 4.2 }],
+  "restaurants": [{ "name": "string", "rating": 4.3, "price_level": 2 }]
+}
+Rules:
+- Recommendations must fit ${destination}.
+- Use 4 attractions max and 4 restaurants max.
+- These are recommendations, not confirmed live listings.
+- Avoid generic placeholders like City Center, Old Town, Culinary Hub.
+- Keep names plausible and destination-specific.`;
+
+  const response = await withRetry(() => llm.invoke([
+    new SystemMessage(fallbackPrompt),
+    new HumanMessage(`Destination: ${destination}\nInterests: ${interests.join(', ') || 'general sightseeing'}\nTrip days: ${days}`),
+  ]));
+
+  const parsed = extractJsonObject(response.content.toString());
+  const attractions = Array.isArray(parsed.attractions) ? parsed.attractions : [];
+  const restaurants = Array.isArray(parsed.restaurants) ? parsed.restaurants : [];
+
+  return {
+    attractions: attractions.map((item: any) => item.name).filter(Boolean),
+    restaurants: restaurants.map((item: any) => item.name).filter(Boolean),
+    attraction_options: attractions.map((item: any, idx: number) => ({
+      name: item.name,
+      rating: item.rating || 4.0,
+      user_ratings_total: 0,
+      photo_reference: null,
+      place_id: `llm-rec-attraction-${idx}`,
+      vicinity: item.vicinity || destination,
+      types: ['recommendation'],
+      source_type: 'llm_recommendation',
+      is_llm_recommended: true,
+    })),
+    restaurant_options: restaurants.map((item: any, idx: number) => ({
+      name: item.name,
+      rating: item.rating || 4.0,
+      price_level: item.price_level,
+      user_ratings_total: 0,
+      source_type: 'llm_recommendation',
+      place_id: `llm-rec-restaurant-${idx}`,
+      is_llm_recommended: true,
+    })),
+    timings: 'Recommendation-only; verify locally',
+    entry_fees: 'Recommendation-only; verify locally',
+    source_status: 'llm_recommendation',
+  };
+}
+
 export const activityTool = tool(
   async ({ destination, interests, days, travelers }) => {
     logger.debug('Activity tool fetching from MCP', { destination, interests, days });
     let data: any;
     try {
-      data = await searchHotelbedsActivities(destination, interests, days, travelers || 1);
-      const nearby = await getPlacesNearby(destination, interests, days);
-      data = {
-        ...data,
-        restaurants: nearby.restaurants,
-        restaurant_options: (nearby as any).restaurant_options || [],
-        attraction_options: (nearby as any).attraction_options || [],
-        timings: nearby.timings,
-      };
-    } catch {
+      if (isHotelbedsConfigured('activities')) {
+        const hbData = await searchHotelbedsActivities(destination, interests, days, travelers || 1);
+        const nearby = await getPlacesNearby(destination, interests, days);
+        const hbAttractions = (hbData.hotelbeds_activities || []).map((act: any) => ({
+          name: act.name,
+          rating: act.rating || 4.5,
+          rating_count: 50,
+          user_ratings_total: 50,
+          vicinity: `Hotelbeds Activity (${act.categories?.join(', ') || 'Sightseeing'})`,
+          photo_reference: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80',
+          price_per_person_inr: act.price_per_person_inr,
+        }));
+        data = {
+          ...hbData,
+          restaurants: nearby.restaurants,
+          restaurant_options: (nearby as any).restaurant_options || [],
+          attraction_options: [...hbAttractions, ...((nearby as any).attraction_options || [])],
+          timings: nearby.timings,
+          source_status: 'hotelbeds_activities',
+        };
+      } else {
+        throw new Error('Hotelbeds activities are not configured.');
+      }
+    } catch (err: any) {
+      logger.warn(`Hotelbeds activities lookup bypassed or failed, falling back to Google Places: ${err.message}`);
       data = await getPlacesNearby(destination, interests, days);
+    }
+
+    const hasLivePlaces = Array.isArray(data?.attraction_options) && data.attraction_options.length > 0;
+    if (!hasLivePlaces) {
+      try {
+        const recommendationData = await generateRecommendationFallback(destination, interests, days);
+        data = {
+          ...data,
+          ...recommendationData,
+        };
+      } catch (fallbackError) {
+        logger.error('Activity Agent recommendation fallback failed', fallbackError);
+      }
     }
 
     // Standalone LLM Reasoning Phase
@@ -52,6 +139,7 @@ Briefly explain if these matches fit traveler preferences, and highlight 2-3 key
     const finalResult = {
       ...data,
       reasoning,
+      data_provenance: data?.source_status || 'google_places_live',
     };
 
     return JSON.stringify(finalResult);
@@ -67,3 +155,4 @@ Briefly explain if these matches fit traveler preferences, and highlight 2-3 key
     }),
   }
 );
+

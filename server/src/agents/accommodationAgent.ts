@@ -16,10 +16,87 @@ const llm = new ChatGroq({
   temperature: 0.3,
 });
 
+async function generateAccommodationFallback(
+  destination: string,
+  check_in: string,
+  check_out: string,
+  travelers: number
+): Promise<any[]> {
+  const nights = Math.max(
+    1,
+    (new Date(check_out).getTime() - new Date(check_in).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  const systemPrompt = `You are a helpful travel assistant.
+Generate exactly 6 popular tourist hotels/lodging places in "${destination}" (actual real properties, e.g. for Goa: "The Leela Goa", "Taj Exotica Resort & Spa", "Park Hyatt Goa Resort and Spa", "Resort Rio", "Marriott Resort", etc.).
+Classify them evenly: 2 budget hotels (approx price per night: ₹2,000 to ₹4,500), 2 mid-range hotels (approx price per night: ₹5,000 to ₹14,000), and 2 luxury hotels (approx price per night: ₹15,000 to ₹45k).
+For each hotel, provide:
+1. name (real actual name)
+2. price_per_night_inr (numeric)
+3. rating (numeric between 3.5 and 5.0)
+4. amenities (array of strings, e.g. ["WiFi", "Pool", "Spa", "AC", "Restaurant"])
+5. address (string area, e.g. "Cavelossim beach, South Goa")
+6. description (1-sentence description)
+
+Return the response ONLY as a valid JSON array of objects. Do not wrap in markdown code blocks, do not explain.
+JSON Format:
+[
+  {
+    "name": "...",
+    "price_per_night_inr": 25000,
+    "rating": 4.8,
+    "amenities": ["WiFi", "Pool", "Spa"],
+    "address": "...",
+    "description": "..."
+  }
+]`;
+
+  try {
+    const response = await withRetry(() => llm.invoke([
+      new SystemMessage(systemPrompt),
+      new HumanMessage(`Generate hotels for ${destination} from ${check_in} to ${check_out} for ${travelers} travelers.`)
+    ]));
+    
+    let text = response.content.toString().trim();
+    if (text.startsWith("```json")) {
+      text = text.substring(7);
+    }
+    if (text.startsWith("```")) {
+      text = text.substring(3);
+    }
+    if (text.endsWith("```")) {
+      text = text.substring(0, text.length - 3);
+    }
+    text = text.trim();
+    
+    const hotels = JSON.parse(text);
+    if (Array.isArray(hotels)) {
+      return hotels.map((h: any) => ({
+        name: h.name || 'Recommended Stay',
+        price_per_night_inr: Number(h.price_per_night_inr) || 5000,
+        rating: Number(h.rating) || 4.2,
+        amenities: Array.isArray(h.amenities) ? h.amenities : ['WiFi', 'AC'],
+        total_cost_inr: (Number(h.price_per_night_inr) || 5000) * nights,
+        address: h.address || destination,
+        description: h.description || 'A cozy local stay.',
+        is_llm_recommended: true,
+      }));
+    }
+  } catch (error) {
+    logger.error('Failed to generate hotel fallbacks', error);
+  }
+  return [];
+}
+
 export const accommodationTool = tool(
   async ({ destination, check_in, check_out, travelers, tier }) => {
     logger.debug('Accommodation tool fetching from MCP', { destination, check_in, check_out, travelers, tier });
     const data = await searchHotels(destination, check_in, check_out, travelers);
+
+    if (!data.hotels || data.hotels.length === 0) {
+      logger.info('No API hotel matches for destination; triggering LLM fallback recommendations', { destination });
+      data.hotels = await generateAccommodationFallback(destination, check_in, check_out, travelers);
+    }
 
     // Standalone LLM Reasoning Phase
     let reasoning = '';

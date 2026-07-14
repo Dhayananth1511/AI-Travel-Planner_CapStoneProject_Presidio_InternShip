@@ -34,16 +34,17 @@ async function generateBatch(
   // Build a structured list of attractions from activities data
   const realAttractions = (activities?.attraction_options || []) as any[];
 
-  // Create enriched attraction info: name + rating + vicinity
+  // Create enriched attraction info: name + rating + vicinity + source
   const enrichedAttractions = realAttractions.map((attr: any) => ({
     name: attr.name,
     rating: attr.rating || 4.0,
     vicinity: attr.vicinity || input.destination,
+    source_type: attr.source_type || 'google_places',
   })).filter((a: any) => a.name);
 
   // Fallback: use simple attraction names if no enriched data
   const attractionsForPrompt = enrichedAttractions.length > 0
-    ? enrichedAttractions.slice(0, 10).map((a: any) => `${a.name} (${a.rating}★)`)
+    ? enrichedAttractions.slice(0, 10).map((a: any) => `${a.name} (${a.rating}★) [${a.source_type}]`)
     : (activities?.attractions || []).slice(0, 10);
 
   const batchPrompt = `Trip: ${input.destination} | Travelers: ${input.travelers}
@@ -58,7 +59,8 @@ Generate the itinerary for ONLY these ${batchDays.length} day(s): ${batchDays.ma
 Start day numbering from ${batchDays[0].day}.
 IMPORTANT: 
 - Day 1 should begin with arrival/check-in then start sightseeing
-- Use the REAL tourist attractions listed above
+- Prefer live provider attractions when marked [google_places]
+- If an attraction is marked [llm_recommendation], present it as a recommended visit, not a confirmed live listing
 - Spread attractions across days (don't repeat same place)
 - Include a suggested local transport note (cab, auto, etc.) for travel activities`;
 
@@ -101,17 +103,20 @@ Always include a transport_note field for activities that require travel from ho
     } catch (err: any) {
       logger.warn(`Itinerary batch (days ${batchDays[0].day}-${batchDays[batchDays.length-1].day}) attempt ${attempt}/2 failed`, { error: err.message });
       if (attempt === 2) {
-        // Return minimal fallback with real attraction names when available
-        const fallbackAttractions = (activities?.attractions || []);
+        // Return minimal fallback with available provider or recommendation names
+        const fallbackAttractions = ((activities?.attraction_options || []) as any[]).map((item: any) => ({
+          name: item.name,
+          source_type: item.source_type || 'google_places',
+        }));
         return batchDays.map((d, idx) => ({
           day: d.day,
           date: d.date,
           title: `Day ${d.day} — ${input.destination}`,
           schedule: [
-            { time: '09:00', activity: fallbackAttractions[idx * 2] ? `Visit ${fallbackAttractions[idx * 2]}` : 'Morning exploration', location: fallbackAttractions[idx * 2] || input.destination, cost_inr: 200, duration_min: 120, transport_note: 'By auto ₹60' },
+            { time: '09:00', activity: fallbackAttractions[idx * 2] ? `${fallbackAttractions[idx * 2].source_type === 'llm_recommendation' ? 'Recommended visit' : 'Visit'} ${fallbackAttractions[idx * 2].name}` : 'Morning exploration', location: fallbackAttractions[idx * 2]?.name || input.destination, cost_inr: 200, duration_min: 120, transport_note: 'By auto ₹60' },
             { time: '13:00', activity: 'Lunch at local restaurant', location: (activities?.restaurants || [])[0] || input.destination, cost_inr: 400, duration_min: 60 },
-            { time: '15:00', activity: fallbackAttractions[idx * 2 + 1] ? `Explore ${fallbackAttractions[idx * 2 + 1]}` : 'Sightseeing & local activities', location: fallbackAttractions[idx * 2 + 1] || input.destination, cost_inr: 300, duration_min: 180, transport_note: 'By cab ₹150' },
-            { time: '19:00', activity: 'Dinner & evening leisure', location: accommodation?.recommended || 'Hotel', cost_inr: 500, duration_min: 90 },
+            { time: '15:00', activity: fallbackAttractions[idx * 2 + 1] ? `${fallbackAttractions[idx * 2 + 1].source_type === 'llm_recommendation' ? 'Recommended explore' : 'Explore'} ${fallbackAttractions[idx * 2 + 1].name}` : 'Sightseeing & local activities', location: fallbackAttractions[idx * 2 + 1]?.name || input.destination, cost_inr: 300, duration_min: 180, transport_note: 'By cab ₹150' },
+            { time: '19:00', activity: 'Dinner & evening leisure', location: (activities?.restaurants || [])[1] || accommodation?.recommended || 'Hotel', cost_inr: 500, duration_min: 90 },
           ],
           daily_total_inr: 1800,
           weather_note: 'Check local conditions before heading out.',
@@ -162,3 +167,4 @@ export async function runItineraryAgent(context: TripContext): Promise<{ days: a
     notes: `${totalDays}-day trip to ${input.destination}. Staying at ${hotelName}. Budget ≈₹${dailyBudget}/day. ${attractionCount} tourist spots covered. Book accommodations and transport well in advance.`,
   };
 }
+

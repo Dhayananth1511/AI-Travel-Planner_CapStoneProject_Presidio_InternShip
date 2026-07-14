@@ -5,9 +5,11 @@
 
 import { withRetry } from '../utils/retry';
 import { getDistanceMatrix } from './mapsMCP';
+import { searchHotelbedsTransfers } from './hotelbedsTransfersMCP';
+import { isHotelbedsConfigured } from './hotelbedsClient';
 
 export interface TransportOption {
-  mode: 'Train' | 'Bus' | 'Flight';
+  mode: 'Train' | 'Bus' | 'Flight' | 'Transfer';
   operator: string;
   duration_hrs: number;
   cost_inr: number;       // Total cost for ALL travelers
@@ -17,7 +19,7 @@ export interface TransportOption {
   rating?: number;
   amenities?: string[];
   class?: string;
-  data_source?: 'live_schedule_estimated_fare' | 'estimated_fallback';
+  data_source?: 'live_schedule_estimated_fare' | 'estimated_fallback' | 'hotelbeds_transfers';
 }
 
 const IATA_MAP: Record<string, string> = {
@@ -109,6 +111,32 @@ export async function getTransportOptions(
 ): Promise<{ options: TransportOption[]; estimated_cost_inr: number; selected_option?: TransportOption }> {
   return withRetry(async () => {
     const options: TransportOption[] = [];
+
+    // 0. Fetch real transfer options via Hotelbeds if configured
+    if (isHotelbedsConfigured('transfers')) {
+      try {
+        const transfersResult = await searchHotelbedsTransfers(origin, destination, travel_date, travelers);
+        if (transfersResult && transfersResult.options && transfersResult.options.length > 0) {
+          transfersResult.options.forEach((opt: any) => {
+            options.push({
+              mode: 'Transfer',
+              operator: opt.operator,
+              duration_hrs: opt.duration_hrs,
+              cost_per_traveler: Math.round(opt.cost_inr / travelers),
+              cost_inr: opt.cost_inr,
+              departure: opt.departure,
+              arrival: opt.arrival,
+              rating: 4.5,
+              amenities: ['Hotel Pickup', 'Air Conditioning', 'Luggage Space'],
+              class: 'Private Transfer',
+              data_source: 'hotelbeds_transfers',
+            });
+          });
+        }
+      } catch (err: any) {
+        console.warn(`Hotelbeds Transfer lookup warning: ${err.message}. Bypassing transfer search.`);
+      }
+    }
 
     // 1. Get real travel distance & time from Google Maps
     let distanceKm = 300;

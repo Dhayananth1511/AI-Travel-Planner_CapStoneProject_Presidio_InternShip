@@ -1131,6 +1131,22 @@ export default function ChatPage() {
                               )}
                             </div>
 
+                            {hotelsList.some((h: any) => h.is_llm_recommended) && (
+                              <div className={`p-3 rounded-lg border flex items-start gap-2.5 ${
+                                isDark
+                                  ? 'bg-amber-950/15 border-amber-800/30 text-amber-300'
+                                  : 'bg-amber-50 border-amber-200 text-amber-800'
+                              }`}>
+                                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+                                <div className="space-y-1">
+                                  <p className="font-bold text-[10.5px]">Live booking data unavailable — AI recommendations shown</p>
+                                  <p className={`text-[10px] leading-relaxed ${isDark ? 'text-amber-400/80' : 'text-amber-700'}`}>
+                                    We couldn't find verified hotel listings for <span className="font-bold">{context.input?.destination}</span> via our booking provider. These are well-known properties recommended by AI. You can visit and book them directly — click any card or "Search &amp; Book Online".
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Tiers Tab Bar */}
                             {hasCategories && (
                               <div className="space-y-2">
@@ -1209,7 +1225,15 @@ export default function ChatPage() {
                                         : isDark
                                         ? 'bg-slate-900/40 border-slate-850 hover:border-slate-700'
                                         : 'bg-white border-slate-205 hover:border-slate-350'
-                                    }`}
+                                    } ${hotel.is_llm_recommended ? 'cursor-pointer hover:border-amber-400/60 dark:hover:border-amber-500/50 hover:shadow-md' : ''}`}
+                                    onClick={(e) => {
+                                      if (hotel.is_llm_recommended) {
+                                        const target = e.target as HTMLElement;
+                                        if (target.tagName !== 'BUTTON' && !target.closest('button')) {
+                                          window.open(`https://www.google.com/search?q=${encodeURIComponent(hotel.name + ' ' + (context.input?.destination || ''))}`, '_blank');
+                                        }
+                                      }
+                                    }}
                                   >
                                     <div className="flex justify-between items-start">
                                       <div className="space-y-1 max-w-[70%]">
@@ -1249,6 +1273,33 @@ export default function ChatPage() {
                                       </div>
                                     </div>
 
+                                    {hotel.address && (
+                                      <p className={`text-[10px] flex items-center gap-1 ${isDark ? 'text-slate-400' : 'text-slate-505'}`}>
+                                        <MapPin className="h-3 w-3 shrink-0 text-indigo-455" /> {hotel.address}
+                                      </p>
+                                    )}
+
+                                    {hotel.description && (
+                                      <p className={`text-[10.5px] leading-relaxed italic ${isDark ? 'text-slate-350' : 'text-slate-600'}`}>
+                                        "{hotel.description}"
+                                      </p>
+                                    )}
+
+                                    {hotel.is_llm_recommended && (
+                                      <div className={`text-[9.5px] font-semibold p-2.5 rounded-lg border leading-relaxed flex flex-col gap-1 ${
+                                        isDark
+                                          ? 'bg-amber-955/20 border-amber-900/40 text-amber-350'
+                                          : 'bg-amber-50 border-amber-250 text-amber-800'
+                                      }`}>
+                                        <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500">
+                                          ⚠️ Web Recommendation
+                                        </span>
+                                        <span>
+                                          This option cannot be booked directly through our app, but you can go there and book it. Click this card to search and book online.
+                                        </span>
+                                      </div>
+                                    )}
+
                                     {/* Amenities list */}
                                     {Array.isArray(hotel.amenities) && hotel.amenities.length > 0 && (
                                       <div className="flex flex-wrap gap-1">
@@ -1267,26 +1318,44 @@ export default function ChatPage() {
                                       </div>
                                     )}
 
-                                    {/* Select Button */}
-                                    {!isRecommended && context.status !== 'CONFIRMED' && (
-                                      <button
-                                        type="button"
-                                        disabled={isSaving || context.status === 'CONFIRMED'}
-                                        onClick={() => handleSelectHotel(hotel.name, lodgingCategoryTab)}
-                                        className={`w-full py-1.5 rounded-lg text-xs font-bold border transition text-center flex items-center justify-center gap-1 cursor-pointer select-none ${
-                                          isDark
-                                            ? 'bg-indigo-950/40 hover:bg-primary/20 border-indigo-900/40 text-indigo-300 hover:text-white'
-                                            : 'bg-indigo-50/50 hover:bg-primary/10 border-indigo-200 text-indigo-700 hover:text-indigo-805'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                      >
-                                        {isSaving ? (
-                                          <>
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Selecting Hotel...
-                                          </>
-                                        ) : (
-                                          'Choose Hotel'
-                                        )}
-                                      </button>
+                                    {/* Select / Book Button */}
+                                    {context.status !== 'CONFIRMED' && (
+                                      hotel.is_llm_recommended ? (
+                                        <a
+                                          href={`https://www.google.com/search?q=${encodeURIComponent('book ' + hotel.name + ' ' + (context.input?.destination || ''))}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`w-full py-1.5 rounded-lg text-xs font-bold border transition text-center flex items-center justify-center gap-1.5 cursor-pointer select-none ${
+                                            isDark
+                                              ? 'bg-amber-950/40 hover:bg-amber-900/60 border-amber-800/50 text-amber-300 hover:text-amber-200'
+                                              : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700 hover:text-amber-800'
+                                          }`}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <ArrowUpRight className="h-3.5 w-3.5" /> Search & Book Online
+                                        </a>
+                                      ) : (
+                                        !isRecommended && (
+                                          <button
+                                            type="button"
+                                            disabled={isSaving || context.status === 'CONFIRMED'}
+                                            onClick={() => handleSelectHotel(hotel.name, lodgingCategoryTab)}
+                                            className={`w-full py-1.5 rounded-lg text-xs font-bold border transition text-center flex items-center justify-center gap-1 cursor-pointer select-none ${
+                                              isDark
+                                                ? 'bg-indigo-950/40 hover:bg-primary/20 border-indigo-900/40 text-indigo-300 hover:text-white'
+                                                : 'bg-indigo-50/50 hover:bg-primary/10 border-indigo-200 text-indigo-700 hover:text-indigo-805'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                          >
+                                            {isSaving ? (
+                                              <>
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Selecting Hotel...
+                                              </>
+                                            ) : (
+                                              'Choose Hotel'
+                                            )}
+                                          </button>
+                                        )
+                                      )
                                     )}
                                   </div>
                                 );
@@ -1386,12 +1455,14 @@ export default function ChatPage() {
                               const icStyle = "h-4 w-4 shrink-0 mt-0.5";
                               if (mode.toLowerCase() === 'flight') return <Send className={`${icStyle} text-sky-400`} />;
                               if (mode.toLowerCase() === 'train') return <Clock className={`${icStyle} text-teal-400`} />;
+                              if (mode.toLowerCase() === 'transfer') return <Car className={`${icStyle} text-emerald-450`} />;
                               return <Car className={`${icStyle} text-amber-500`} />;
                             };
 
                             const getModeLabelPrefix = (mode: string) => {
                               if (mode.toLowerCase() === 'flight') return '🛫 Flight';
                               if (mode.toLowerCase() === 'train') return '🚆 Train';
+                              if (mode.toLowerCase() === 'transfer') return '🚗 Private Transfer';
                               return '🚌 Intercity Bus';
                             };
 
@@ -1572,6 +1643,22 @@ export default function ChatPage() {
                       </div>
                     )}
 
+                    {context.activities.data_provenance === 'llm_recommendation' && (
+                      <div className={`p-3 rounded-lg border flex items-start gap-2.5 ${
+                        isDark
+                          ? 'bg-amber-950/15 border-amber-800/30 text-amber-300'
+                          : 'bg-amber-50 border-amber-200 text-amber-800'
+                      }`}>
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+                        <div className="space-y-1">
+                          <p className="font-bold text-[10.5px]">Live data unavailable — AI recommendations shown</p>
+                          <p className={`text-[10px] leading-relaxed ${isDark ? 'text-amber-400/80' : 'text-amber-700'}`}>
+                            We couldn't fetch live activity/places data for <span className="font-bold">{context.input?.destination}</span>. The places shown below are AI-recommended based on popular attractions. They cannot be booked through this app — click any card to search &amp; explore on Google Maps.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Rich Attraction Cards Grid */}
                     {Array.isArray(context.activities.attraction_options) && context.activities.attraction_options.length > 0 && (
                       <div className="space-y-3 pt-2">
@@ -1597,10 +1684,19 @@ export default function ChatPage() {
                               <div
                                 key={idx}
                                 className={`group p-2.5 rounded-xl border transition-all flex flex-col gap-2 relative overflow-hidden ${
-                                  isDark
-                                    ? 'bg-slate-900/60 border-slate-850 hover:bg-slate-900/80 hover:border-slate-700 hover:shadow-lg'
-                                    : 'bg-white border-slate-205 hover:border-slate-350 hover:shadow-lg'
+                                  item.is_llm_recommended
+                                    ? isDark
+                                      ? 'bg-amber-950/10 border-amber-800/30 hover:border-amber-600/50 hover:shadow-md cursor-pointer'
+                                      : 'bg-amber-50/40 border-amber-200 hover:border-amber-400/60 hover:shadow-md cursor-pointer'
+                                    : isDark
+                                      ? 'bg-slate-900/60 border-slate-850 hover:bg-slate-900/80 hover:border-slate-700 hover:shadow-lg'
+                                      : 'bg-white border-slate-205 hover:border-slate-350 hover:shadow-lg'
                                 }`}
+                                onClick={() => {
+                                  if (item.is_llm_recommended) {
+                                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + ' ' + (context.input?.destination || ''))}`, '_blank');
+                                  }
+                                }}
                               >
                                 {/* Image Container */}
                                 <div className="h-28 w-full relative rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-950">
@@ -1612,17 +1708,27 @@ export default function ChatPage() {
                                       e.currentTarget.src = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
                                     }}
                                   />
-                                  <div className="absolute top-2 right-2 flex items-center justify-center">
+                                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                                    {item.is_llm_recommended && (
+                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow ${
+                                        isDark ? 'bg-amber-500 text-white' : 'bg-amber-400 text-white'
+                                      }`}>
+                                        ⚠️ Web Rec
+                                      </span>
+                                    )}
                                     <a
-                                      href={mapsUrl}
+                                      href={item.is_llm_recommended
+                                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + ' ' + (context.input?.destination || ''))}`
+                                        : mapsUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      title="Open in Google Maps"
+                                      title={item.is_llm_recommended ? 'Search on Google Maps' : 'Open in Google Maps'}
                                       className={`h-7 w-7 rounded-full flex items-center justify-center shadow-lg transition active:scale-90 scale-95 hover:scale-105 ${
                                         isDark
                                           ? 'bg-slate-955 text-indigo-400 hover:bg-primary/20 hover:text-white border border-slate-805'
                                           : 'bg-white text-indigo-700 hover:bg-primary hover:text-white border border-slate-205'
                                       }`}
+                                      onClick={(e) => e.stopPropagation()}
                                     >
                                       <ArrowUpRight className="h-4 w-4" />
                                     </a>
@@ -1643,6 +1749,12 @@ export default function ChatPage() {
                                     )}
                                   </div>
 
+                                  {item.is_llm_recommended && (
+                                    <p className={`text-[9px] leading-tight pt-1 ${isDark ? 'text-amber-400/80' : 'text-amber-700'}`}>
+                                      Not directly bookable — click to search &amp; visit
+                                    </p>
+                                  )}
+
                                   <div className="flex items-center justify-between gap-1.5 mt-1 pt-1 border-t border-slate-150/10 dark:border-slate-800">
                                     {/* Star Rating */}
                                     <div className="flex items-center gap-0.5">
@@ -1657,7 +1769,7 @@ export default function ChatPage() {
                                     </div>
                                     
                                     {/* Reviews Count */}
-                                    {item.user_ratings_total !== undefined && (
+                                    {item.user_ratings_total !== undefined && item.user_ratings_total > 0 && (
                                       <span className={`text-[8.5px] font-semibold font-mono ${isDark ? 'text-slate-500' : 'text-slate-455'}`}>
                                         ({item.user_ratings_total.toLocaleString()} reviews)
                                       </span>
@@ -1823,35 +1935,70 @@ export default function ChatPage() {
                               {/* Activities list */}
                               {dayItem.schedule && dayItem.schedule.length > 0 ? (
                                 <div className="space-y-2.5">
-                                  {dayItem.schedule.map((action: any, aIdx: number) => (
-                                    <div
-                                      key={aIdx}
-                                      className={`p-2.5 rounded-lg border space-y-1.5 transition ${
-                                        isDark ? 'bg-slate-900/50 border-slate-850 hover:border-slate-800' : 'bg-slate-50 border-slate-205 hover:border-slate-300'
-                                      }`}
-                                    >
-                                      <div className="flex justify-between items-center text-[10px]">
-                                        <span className={`font-semibold flex items-center gap-1 ${
-                                          isDark ? 'text-slate-400' : 'text-slate-550'
-                                        }`}>
-                                          <Clock className="h-3 w-3 text-primary" />
-                                          {action.time} ({action.duration_min} min)
-                                        </span>
-                                        {action.cost_inr > 0 && (
-                                          <span className={`font-bold ${isDark ? 'text-slate-350' : 'text-slate-650'}`}>
-                                            ₹{action.cost_inr.toLocaleString()}
+                                  {dayItem.schedule.map((action: any, aIdx: number) => {
+                                    const actionText = String(action.activity || '').toLowerCase();
+                                    const isRecommendation = actionText.includes('recommended');
+                                    const badges = [
+                                      isRecommendation ? 'Recommended' : '',
+                                      actionText.includes('check-in') || actionText.includes('hotel') ? 'Stay' : '',
+                                      actionText.includes('lunch') || actionText.includes('dinner') || actionText.includes('breakfast') ? 'Meal' : '',
+                                      actionText.includes('visit') || actionText.includes('explore') || actionText.includes('sightseeing') ? 'Sightseeing' : '',
+                                      action.transport_note ? 'Transit' : '',
+                                    ].filter(Boolean);
+
+                                    const detailLines = [
+                                      isRecommendation ? '- **Source:** AI recommendation (live place data unavailable)' : '- **Source:** Live provider-backed place data',
+                                      action.location ? `- **Location:** ${action.location}` : '',
+                                      action.transport_note ? `- **Getting there:** ${action.transport_note}` : '',
+                                      action.duration_min ? `- **Planned duration:** ${action.duration_min} min` : '',
+                                      action.cost_inr > 0 ? `- **Expected spend:** \u20B9${action.cost_inr.toLocaleString()}` : '- **Expected spend:** Free / already covered',
+                                    ].filter(Boolean).join('\n');
+
+                                    return (
+                                      <div
+                                        key={aIdx}
+                                        className={`p-2.5 rounded-lg border space-y-2 transition ${
+                                          isDark ? 'bg-slate-900/50 border-slate-850 hover:border-slate-800' : 'bg-slate-50 border-slate-205 hover:border-slate-300'
+                                        }`}
+                                      >
+                                        <div className="flex justify-between items-center text-[10px]">
+                                          <span className={`font-semibold flex items-center gap-1 ${
+                                            isDark ? 'text-slate-400' : 'text-slate-550'
+                                          }`}>
+                                            <Clock className="h-3 w-3 text-primary" />
+                                            {action.time} ({action.duration_min} min)
                                           </span>
-                                        )}
+                                          {action.cost_inr > 0 && (
+                                            <span className={`font-bold ${isDark ? 'text-slate-350' : 'text-slate-650'}`}>
+                                              {'\u20B9'}{action.cost_inr.toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {badges.map((badge, badgeIdx) => (
+                                            <span
+                                              key={badgeIdx}
+                                              className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                                badge === 'Recommended'
+                                                  ? isDark
+                                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                                    : 'bg-amber-50 border-amber-200 text-amber-700'
+                                                  : isDark
+                                                    ? 'bg-slate-950/50 border-slate-800 text-slate-350'
+                                                    : 'bg-white border-slate-200 text-slate-600'
+                                              }`}
+                                            >
+                                              {badge}
+                                            </span>
+                                          ))}
+                                        </div>
+                                        <p className={`text-xs font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{action.activity}</p>
+                                        <div className={`prose prose-sm max-w-none text-[11px] leading-relaxed ${isDark ? 'prose-invert text-slate-350' : 'prose-slate text-slate-600'}`}>
+                                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailLines}</ReactMarkdown>
+                                        </div>
                                       </div>
-                                      <p className={`text-xs font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{action.activity}</p>
-                                      {action.location && (
-                                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block flex items-center gap-0.5">
-                                          <Navigation className="h-2.5 w-2.5 text-primary shrink-0" />
-                                          {action.location}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <p className="text-xs text-slate-500 italic">Relax / leisure schedules</p>
@@ -2183,6 +2330,13 @@ export default function ChatPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 
