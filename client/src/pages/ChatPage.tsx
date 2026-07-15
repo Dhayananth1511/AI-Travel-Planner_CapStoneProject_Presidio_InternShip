@@ -332,7 +332,12 @@ export default function ChatPage() {
           content: `🎉 Awesome! The trip has been successfully approved & confirmed.\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${data.bookingRefs?.hotel}\`\n* ✈️ **Transport:** \`${data.bookingRefs?.transport}\`\n* 📅 **Calendar integration:** Created Google Calendar event (\`${data.bookingRefs?.calendar}\`)`,
         },
       ]);
-      if (context) setContext({ ...context, status: 'CONFIRMED', booking: { refs: data.bookingRefs, confirmed_at: new Date().toISOString() } });
+      // Prefer the full trip document returned by the backend; fall back to a shallow merge
+      if (data.trip) {
+        setContext(data.trip);
+      } else if (context) {
+        setContext({ ...context, status: 'CONFIRMED', booking: { refs: data.bookingRefs, confirmed_at: new Date().toISOString() } });
+      }
     },
     onError: (err: any) => {
       toast.error(`Approval failed: ${err.response?.data?.message || err.message}`);

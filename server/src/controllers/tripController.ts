@@ -160,7 +160,10 @@ export const approveTrip = async (req: Request, res: Response): Promise<void> =>
     trip.booking = { refs: booking.bookingRefs, confirmed_at: new Date() };
     await trip.save();
 
-    res.json({ message: 'Trip confirmed!', bookingRefs: booking.bookingRefs, status: 'CONFIRMED' });
+    // Re-fetch the fully saved document so the frontend gets the complete trip context
+    const confirmedTrip = await Trip.findOne({ sessionId: tripId, userId });
+
+    res.json({ message: 'Trip confirmed!', bookingRefs: booking.bookingRefs, status: 'CONFIRMED', trip: confirmedTrip });
   } catch (error) {
     logger.error('Trip approval failed', { error });
     res.status(500).json({ message: 'Booking failed. Please try again.' });
