@@ -11,6 +11,7 @@ interface Hotel {
   description?: string;
   amenities?: string[];
   is_llm_recommended?: boolean;
+  source_type?: 'hotelbeds_api' | 'geoapify_places' | 'llm_recommendation';
 }
 
 interface HotelCardProps {
@@ -76,15 +77,39 @@ export const HotelCard: React.FC<HotelCardProps> = ({
             <span className={`font-bold text-xs ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
               {hotel.name}
             </span>
-            {hotel.is_llm_recommended ? (
-              <span className="text-[8.5px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 leading-none uppercase tracking-wider">
-                💡 AI Recommendation
-              </span>
-            ) : (
-              <span className="text-[8.5px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-650 dark:text-emerald-400 leading-none uppercase tracking-wider">
-                🌐 Live Google Hotel
-              </span>
-            )}
+            {(() => {
+              const srcType = hotel.source_type;
+              const isLLM = hotel.is_llm_recommended || srcType === 'llm_recommendation';
+              const isHotelbeds = srcType === 'hotelbeds_api';
+              const isGeoapify = srcType === 'geoapify_places';
+              if (isLLM) {
+                return (
+                  <span className="text-[8.5px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 leading-none uppercase tracking-wider">
+                    💡 AI Recommendation
+                  </span>
+                );
+              }
+              if (isHotelbeds) {
+                return (
+                  <span className="text-[8.5px] font-extrabold px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 leading-none uppercase tracking-wider">
+                    🏨 Hotelbeds API
+                  </span>
+                );
+              }
+              if (isGeoapify) {
+                return (
+                  <span className="text-[8.5px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-650 dark:text-emerald-400 leading-none uppercase tracking-wider">
+                    🗺️ Geoapify Live
+                  </span>
+                );
+              }
+              // legacy fallback: no source_type set
+              return (
+                <span className="text-[8.5px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-650 dark:text-emerald-400 leading-none uppercase tracking-wider">
+                  🌐 Live Data
+                </span>
+              );
+            })()}
             {isRecommended && (
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500 text-white leading-none flex items-center gap-0.5 animate-fadeIn">
                 <Check className="h-2.5 w-2.5" /> Selected

@@ -66,6 +66,121 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
         )}
       </div>
 
+      {/* DATA SOURCE INTELLIGENCE LEGEND */}
+      {(context.accommodation || context.activities || context.weather) && (
+        <div className={`rounded-xl p-3.5 space-y-2 border ${
+          isDark
+            ? 'bg-slate-900/50 border-slate-800'
+            : 'bg-slate-50 border-slate-200'
+        }`}>
+          <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${
+            isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}>
+            🔍 Data Source Intelligence
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {/* Hotels */}
+            {context.accommodation && (() => {
+              const allHotels = [
+                ...(context.accommodation.categories?.budget || []),
+                ...(context.accommodation.categories?.mid_range || []),
+                ...(context.accommodation.categories?.luxury || []),
+                ...(context.accommodation.hotels || []),
+              ];
+              const hasHotelbeds = allHotels.some((h: any) => h.source_type === 'hotelbeds_api');
+              const hasGeoapify = allHotels.some((h: any) => h.source_type === 'geoapify_places');
+              const hasLLM = allHotels.some((h: any) => h.is_llm_recommended || h.source_type === 'llm_recommendation');
+              return (
+                <div className="flex flex-col gap-1">
+                  <span className={`text-[9px] font-bold uppercase ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>🏨 Hotels</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {hasHotelbeds && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-400/30 text-blue-600 dark:text-blue-400 leading-none uppercase tracking-wide">
+                        🏨 Hotelbeds API
+                      </span>
+                    )}
+                    {hasGeoapify && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
+                        🗺️ Geoapify Places
+                      </span>
+                    )}
+                    {hasLLM && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
+                        💡 LLM Fallback
+                      </span>
+                    )}
+                    {!hasHotelbeds && !hasGeoapify && !hasLLM && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 leading-none uppercase tracking-wide">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Attractions & Restaurants */}
+            {context.activities && (() => {
+              const attrSrc = (context.activities.attraction_options || []).some(
+                (a: any) => a.source_type === 'geoapify_places'
+              );
+              const restSrc = (context.activities.restaurant_options || []).some(
+                (r: any) => r.source_type === 'geoapify_places'
+              );
+              const attrLLM = (context.activities.attraction_options || []).some(
+                (a: any) => a.source_type === 'llm_recommendation' || a.is_llm_recommended
+              );
+              return (
+                <div className="flex flex-col gap-1">
+                  <span className={`text-[9px] font-bold uppercase ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>🎡 Places & Dining</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {(attrSrc || restSrc) && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
+                        🗺️ Geoapify Places
+                      </span>
+                    )}
+                    {attrLLM && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
+                        💡 LLM Fallback
+                      </span>
+                    )}
+                    {!attrSrc && !restSrc && !attrLLM && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 leading-none uppercase tracking-wide">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Weather */}
+            {context.weather && (
+              <div className="flex flex-col gap-1">
+                <span className={`text-[9px] font-bold uppercase ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>🌤️ Weather</span>
+                <div className="flex gap-1 flex-wrap">
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-700 dark:text-sky-400 leading-none uppercase tracking-wide">
+                    ☁️ Open-Meteo API
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Routing */}
+            {context.transport && (
+              <div className="flex flex-col gap-1">
+                <span className={`text-[9px] font-bold uppercase ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>🚗 Routing</span>
+                <div className="flex gap-1 flex-wrap">
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
+                    🗺️ Geoapify Routing
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* CHECKED PARAMETERS CARD */}
       {context.input && (
         <div className="premium-card rounded-xl p-5 space-y-3.5">

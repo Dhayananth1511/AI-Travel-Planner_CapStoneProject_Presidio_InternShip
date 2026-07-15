@@ -10,6 +10,7 @@ interface Attraction {
   photo_reference?: string;
   place_id?: string;
   is_llm_recommended?: boolean;
+  source_type?: 'geoapify_places' | 'llm_recommendation';
 }
 
 interface AttractionCardProps {
@@ -86,13 +87,13 @@ export const AttractionCard: React.FC<AttractionCardProps> = ({
         />
         {/* Source Provenance Badge */}
         <div className="absolute top-2 left-2 flex items-center">
-          {item.is_llm_recommended ? (
+          {(item.is_llm_recommended || item.source_type === 'llm_recommendation') ? (
             <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-white shadow-md uppercase tracking-wider backdrop-blur-sm bg-opacity-95">
               💡 AI Recommendation
             </span>
           ) : (
             <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-600 text-white shadow-md uppercase tracking-wider backdrop-blur-sm bg-opacity-95">
-              🌐 Live Google Place
+              🗺️ Geoapify Live
             </span>
           )}
         </div>

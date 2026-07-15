@@ -21,6 +21,7 @@ interface HotelOption {
   stars?: number;
   address?: string;
   description?: string;
+  source_type?: 'hotelbeds_api' | 'geoapify_places' | 'llm_recommendation';
 }
 
 // ---------------------------------------------------------------------------
@@ -334,6 +335,7 @@ async function searchHotelbedsContentHotels(
       stars,
       address: h?.address?.content || h?.city?.content || destination,
       description: h?.description?.content?.slice(0, 120),
+      source_type: 'hotelbeds_api' as const,
     } satisfies HotelOption;
   });
 }
@@ -364,15 +366,15 @@ export async function searchHotels(
         }
       }
 
-      // If Hotelbeds isn't configured or returned no results, query Google Places Lodgings
+      // If Hotelbeds isn't configured or returned no results, query Geoapify for accommodation
       if (hotels.length === 0) {
-        console.info(`[bookingMCP] No Hotelbeds hotels resolved for '${destination}'. Querying Google Places for accommodation...`);
-        const googleHotels = await getHotelsNearby(destination, nights);
-        if (googleHotels && googleHotels.length > 0) {
-          hotels = googleHotels as any;
-          console.info(`[bookingMCP] Loaded ${hotels.length} hotels from Google Places API.`);
+        console.info(`[bookingMCP] No Hotelbeds hotels resolved for '${destination}'. Querying Geoapify for accommodation...`);
+        const geoapifyHotels = await getHotelsNearby(destination, nights);
+        if (geoapifyHotels && geoapifyHotels.length > 0) {
+          hotels = geoapifyHotels.map((h: any) => ({ ...h, source_type: 'geoapify_places' as const }));
+          console.info(`[bookingMCP] Loaded ${hotels.length} hotels from Geoapify Places API.`);
         } else {
-          console.warn(`[bookingMCP] Google Places accommodation search returned 0 results for '${destination}'.`);
+          console.warn(`[bookingMCP] Geoapify accommodation search returned 0 results for '${destination}'.`);
         }
       }
     } catch (err: any) {
