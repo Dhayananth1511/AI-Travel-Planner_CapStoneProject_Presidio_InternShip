@@ -151,6 +151,7 @@ jobs:
               "GROQ_API_KEY_4"
               "GROQ_API_KEY_5"
               "GOOGLE_MAPS_API_KEY"
+              "GEOAPIFY_API_KEY"
               "HOTELBEDS_API_KEY"
               "HOTELBEDS_API_SECRET"
               "HOTELBEDS_BASE_URL"
