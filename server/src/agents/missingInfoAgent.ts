@@ -4,19 +4,13 @@
 // This allows the LLM to prioritise intelligently — e.g. ask for dates and
 // budget in one shot when both are missing, rather than one field at a time.
 
-import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { TripContext } from './plannerAgent';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
-
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant',
-  temperature: 0.3,
-});
+import { createChatModel } from '../utils/llm';
 
 export interface MissingInfoResult {
   complete: boolean;
@@ -96,16 +90,19 @@ Rules:
 
 You MUST invoke exactly one tool.`;
 
-  const agentWithTools = llm.bindTools([
-    askForOriginTool,
-    askForDatesTool,
-    askForBudgetTool,
-    askForTravelersTool,
-    askForMultipleTool,
-    allFieldsCompleteTool,
-  ]);
+  const llm = createChatModel({
+    temperature: 0.3,
+    tools: [
+      askForOriginTool,
+      askForDatesTool,
+      askForBudgetTool,
+      askForTravelersTool,
+      askForMultipleTool,
+      allFieldsCompleteTool,
+    ],
+  });
 
-  const response = await withRetry(() => agentWithTools.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(supervisorPrompt),
     new HumanMessage('Which question should I ask the user next?'),
   ]));

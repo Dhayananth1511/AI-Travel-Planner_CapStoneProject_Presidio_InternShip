@@ -2,7 +2,6 @@
 // Rather than using static controller steps, the Planner Agent acts as a Supervisor model,
 // extracting user inputs and dynamically selecting which child agent tool to route to.
 
-import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -16,10 +15,9 @@ import { getRestaurantsNearHotel } from '../mcp-servers/mapsMCP';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
 import { validateTripDates, clampTravelers, clampBudget } from '../utils/inputSanitizer';
+import { createChatModel } from '../utils/llm';
 
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant', // Fast model for slots and supervisor routing
+const llm = createChatModel({
   temperature: 0.1,
 });
 
@@ -254,19 +252,16 @@ You MUST invoke exactly one tool.`;
     schema: supervisorArgsSchema,
   });
 
-  const supervisorLlm = new ChatGroq({
-    apiKey: process.env.GROQ_API_KEY,
-    model: 'llama-3.1-8b-instant',
+  const supervisorLlm = createChatModel({
     temperature: 0.1,
+    tools: [
+      validateTripInputsTool,
+      recommendDestinationTool,
+      orchestrateAndGenerateTripPlanTool,
+    ],
   });
 
-  const supervisorWithTools = supervisorLlm.bindTools([
-    validateTripInputsTool,
-    recommendDestinationTool,
-    orchestrateAndGenerateTripPlanTool,
-  ]);
-
-  const supervisorResponse = await withRetry(() => supervisorWithTools.invoke([
+  const supervisorResponse = await withRetry(() => supervisorLlm.invoke([
     new SystemMessage(supervisorPrompt),
     new HumanMessage('Choose the correct tool to invoke now.'),
   ]));

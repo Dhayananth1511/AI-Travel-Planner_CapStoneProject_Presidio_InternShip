@@ -1,7 +1,6 @@
 // Coordinator Agent — the orchestrator and final synthesizer.
 // Coordinates dynamic tool execution using LangChain Tool-Calling and compiles the Markdown plan.
 
-import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
 import { weatherTool } from './weatherAgent';
@@ -10,25 +9,21 @@ import { accommodationTool } from './accommodationAgent';
 import { activityTool } from './activityAgent';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
+import { createChatModel } from '../utils/llm';
 
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant',
+const llm = createChatModel({
   temperature: 0.5,
 });
 
-const routerLlm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant', // Fast model used for dynamic tool routing
+const routerLlm = createChatModel({
   temperature: 0.1,
+  tools: [
+    weatherTool,
+    transportTool,
+    accommodationTool,
+    activityTool,
+  ],
 });
-
-const modelWithTools = routerLlm.bindTools([
-  weatherTool,
-  transportTool,
-  accommodationTool,
-  activityTool,
-]);
 
 function isBudgetOnlyAdjustment(userMessage: string): boolean {
   const message = userMessage.toLowerCase();
@@ -139,7 +134,7 @@ Rules:
 Ensure you populate tool arguments using the current context: destination="${input.destination || ''}", origin="${input.origin || ''}", start_date="${input.start_date || ''}", end_date="${input.end_date || ''}", travelers=${input.travelers || 0}, days=${days}, interests=${JSON.stringify(input.interests || [])}.${userPriceCeiling ? `
 Note: The user has explicitly requested a maximum hotel price of ₹${userPriceCeiling}/night. When calling fetch_accommodation, you must pass tier="budget" and max_price_per_night=${userPriceCeiling} to restrict results.` : ''}`;
 
-  const response = await withRetry(() => modelWithTools.invoke([
+  const response = await withRetry(() => routerLlm.invoke([
     new SystemMessage(systemPrompt),
     new HumanMessage(`User query: "${userMessage}"\n\nCurrent context state: ${JSON.stringify({
       hasWeather: !!context.weather?.forecast?.length,
@@ -150,7 +145,7 @@ Note: The user has explicitly requested a maximum hotel price of ₹${userPriceC
   ]));
 
   const toolCalls = response.tool_calls || [];
-  logger.info('LLM Router tool selection result', { toolCallsCount: toolCalls.length, toolCalls: toolCalls.map(t => t.name) });
+  logger.info('LLM Router tool selection result', { toolCallsCount: toolCalls.length, toolCalls: toolCalls.map((t: any) => t.name) });
 
   // If the LLM did not choose any tools despite missing data, fall back to executing all tools
   if (toolCalls.length === 0 && (!context.weather?.forecast?.length || !context.accommodation?.hotels?.length)) {
@@ -165,7 +160,7 @@ Note: The user has explicitly requested a maximum hotel price of ₹${userPriceC
 
   const newContext = { ...context };
 
-  const promises = toolCalls.map(async (toolCall) => {
+  const promises = toolCalls.map(async (toolCall: any) => {
     const toolName = toolCall.name;
     const args = { ...toolCall.args } as any;
 

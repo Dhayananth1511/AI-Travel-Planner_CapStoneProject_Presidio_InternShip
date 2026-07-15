@@ -4,15 +4,13 @@
 
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { getTransportOptions } from '../mcp-servers/transitMCP';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
+import { createChatModel } from '../utils/llm';
 
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant',
+const llm = createChatModel({
   temperature: 0.3,
 });
 

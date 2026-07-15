@@ -5,17 +5,15 @@
 // model from truncating its JSON output mid-stream (which causes parse failures
 // on longer trips). Results are merged into one consolidated itinerary.
 
-import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
+import { createChatModel } from '../utils/llm';
 
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant',
-  temperature: 0.3, // Lower temp = more deterministic JSON
-  maxTokens: 4096,  // Explicit cap per call to prevent runaway responses
+const llm = createChatModel({
+  temperature: 0.3,
+  maxTokens: 4096,
 });
 
 /** Generates a single itinerary batch for a slice of dates. */

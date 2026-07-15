@@ -4,19 +4,13 @@
 // Key insight: we PRESERVE everything that was expensive to compute and
 // ONLY re-run what the user wants changed. This saves API calls and time.
 
-import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { TripContext } from './plannerAgent';
 import { withRetry } from '../utils/retry';
 import logger from '../utils/logger';
-
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant',
-  temperature: 0.1,
-});
+import { createChatModel } from '../utils/llm';
 
 // --- Tool Definitions ---
 // Each tool maps to a specific replan action the LLM can invoke.
@@ -87,16 +81,19 @@ Tool selection rules:
 
 You MUST invoke exactly one tool.`;
 
-  const agentWithTools = llm.bindTools([
-    replanAccommodationTool,
-    replanDatesTool,
-    replanBudgetTool,
-    replanActivitiesTool,
-    replanItineraryTool,
-    replanFullTripTool,
-  ]);
+  const llm = createChatModel({
+    temperature: 0.1,
+    tools: [
+      replanAccommodationTool,
+      replanDatesTool,
+      replanBudgetTool,
+      replanActivitiesTool,
+      replanItineraryTool,
+      replanFullTripTool,
+    ],
+  });
 
-  const response = await withRetry(() => agentWithTools.invoke([
+  const response = await withRetry(() => llm.invoke([
     new SystemMessage(supervisorPrompt),
     new HumanMessage(`User rejection reason: "${rejectionReason}"`),
   ]));

@@ -2,15 +2,13 @@
 // in mind, this agent suggests top 3 places based on budget, interests, and
 // past travel history stored in long-term memory.
 
-import { ChatGroq } from '@langchain/groq';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { TripContext } from './plannerAgent';
 import { withRetry } from '../utils/retry';
+import { createChatModel } from '../utils/llm';
 
-const llm = new ChatGroq({
-  apiKey: process.env.GROQ_API_KEY,
-  model: 'llama-3.1-8b-instant',
-  temperature: 0.7, // Higher temperature = more creative recommendations
+const llm = createChatModel({
+  temperature: 0.7,
 });
 
 export async function runDestinationRecAgent(
