@@ -167,7 +167,35 @@ Note: The user has explicitly requested a maximum hotel price of ₹${userPriceC
 
   const promises = toolCalls.map(async (toolCall) => {
     const toolName = toolCall.name;
-    const args = toolCall.args;
+    const args = { ...toolCall.args } as any;
+
+    // Apply strict programmatic overrides to prevent LLM argument/naming confusion (origin/destination swaps)
+    if (input.destination) {
+      if (args.destination && args.destination !== input.destination) {
+        logger.warn(`Orchestrator: Correcting LLM argument 'destination' from "${args.destination}" to context destination "${input.destination}" for tool "${toolName}"`);
+      }
+      args.destination = input.destination;
+    }
+    
+    if (toolName === 'fetch_transport' && input.origin) {
+      if (args.origin && args.origin !== input.origin) {
+        logger.warn(`Orchestrator: Correcting LLM argument 'origin' from "${args.origin}" to context origin "${input.origin}" for tool "${toolName}"`);
+      }
+      args.origin = input.origin;
+    }
+
+    // Force dates and days to strictly align with planned context numbers
+    if (toolName === 'fetch_weather') {
+      if (input.start_date) args.start_date = input.start_date;
+      if (input.end_date) args.end_date = input.end_date;
+    } else if (toolName === 'fetch_transport') {
+      if (input.start_date) args.travel_date = input.start_date;
+    } else if (toolName === 'fetch_accommodation') {
+      if (input.start_date) args.check_in = input.start_date;
+      if (input.end_date) args.check_out = input.end_date;
+    } else if (toolName === 'fetch_activities') {
+      args.days = days;
+    }
 
     let rawResult: any;
     if (toolName === 'fetch_weather') {

@@ -104,8 +104,8 @@ Today's Date: ${currentDateStr}
 Reference Year: ${currentYear}
 
 Slot definitions to extract:
-- destination: The target vacation/visit city (e.g. "Manali").
-- origin: The departure/starting city (e.g. "Coimbatore").
+- destination: The target vacation/visit city that the traveler is traveling TO (e.g. "Manali", "Ooty"). Do NOT confuse this with the departure/starting city.
+- origin: The departure/starting/origin city that the traveler is traveling FROM (e.g. "Coimbatore", "Chennai"). Do NOT confuse this with the destination city.
 - start_date: Start date of travel (YYYY-MM-DD format).
 - end_date: End date of travel (YYYY-MM-DD format).
 - travelers: Total count of travelers (integer).
@@ -115,7 +115,7 @@ Slot definitions to extract:
 
 Crucial Rules:
 0. **Destination Override (HIGHEST PRIORITY):** If the user explicitly states they want to travel TO a specific named city or place — using phrases like "I want to go to X", "take me to X", "plan a trip to X", "destination is X", "X instead", "change to X", "I prefer X" — you MUST extract that place as the "destination", overriding any previously set destination. This applies even if a destination is already set in the current known parameters.
-1. For all OTHER location mentions (not prefixed with destination intent), identify if it is the "origin" (departure city) or the "destination" using recent chat history (e.g., if assistant asked "What is your departure city?" and user replies "Coimbatore", that is the "origin"). Do NOT overwrite the existing destination with the origin.
+1. Strictly separate the starting city (origin) and the target city (destination). For example, if user indicates "Ooty is destination, Chennai is departure" or "plan a trip from Chennai to Ooty", Chennai is the **origin** and Ooty is the **destination**. Do NOT swap them, and do NOT overwrite the existing destination with the origin.
 2. If the user mentions a relative date like "15th july", format it as "${currentYear}-07-15" using the Reference Year ${currentYear}.
 3. Relative Date Resolution:
    - If the user says "next week" or "from next week", calculate the target start date. If today is Sunday, "next week" starts on the upcoming Monday (eight days from now or next calendar week's Monday).
