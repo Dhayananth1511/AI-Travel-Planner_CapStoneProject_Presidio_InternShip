@@ -472,12 +472,12 @@ resource "aws_cloudfront_distribution" "frontend" {
       origin_protocol_policy = "http-only"  # EC2 speaks plain HTTP on port 5000
       origin_ssl_protocols   = ["TLSv1.2"]
 
-      # CRITICAL: Increase timeouts beyond the 60-second default.
-      # The AI agent swarm (LLM calls + parallel MCP tools) can take 60-90s.
-      # Without this the first request always gets a CloudFront 504 error,
-      # then succeeds on refresh because MongoDB already has the result.
-      origin_read_timeout      = 180  # seconds (max CloudFront allows)
-      origin_keepalive_timeout = 60   # seconds
+      # Increase timeouts to the maximum allowed for standard AWS accounts (60s).
+      # Agent swarm can take 60-90s; on first-request timeout the MongoDB context
+      # is already saved, so the frontend auto-retry will succeed immediately.
+      # NOTE: Values above 60s require an AWS Business/Enterprise support plan quota increase.
+      origin_read_timeout      = 60  # seconds (max for standard accounts)
+      origin_keepalive_timeout = 60  # seconds
     }
   }
 

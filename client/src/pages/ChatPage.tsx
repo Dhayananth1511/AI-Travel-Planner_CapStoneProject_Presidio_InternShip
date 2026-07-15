@@ -207,6 +207,21 @@ export default function ChatPage() {
       try {
         const res = await api.post('/trips/plan', payload);
         return res.data;
+      } catch (firstErr: any) {
+        const isTimeout = firstErr.code === 'ECONNABORTED' || firstErr.message?.includes('timeout') || firstErr.response?.status === 504;
+        // Auto-retry on timeout: MongoDB already saved the result during the first attempt,
+        // so the retry call returns instantly with the computed data.
+        if (isTimeout) {
+          setActiveStep('Agent swarm warming up — auto-retrying now...');
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          try {
+            const retryRes = await api.post('/trips/plan', payload);
+            return retryRes.data;
+          } catch (retryErr) {
+            throw retryErr;
+          }
+        }
+        throw firstErr;
       } finally {
         clearInterval(interval);
       }
