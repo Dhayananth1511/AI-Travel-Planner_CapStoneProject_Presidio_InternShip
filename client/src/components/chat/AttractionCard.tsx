@@ -43,7 +43,9 @@ export const AttractionCard: React.FC<AttractionCardProps> = ({
   const stars = Array.from({ length: 5 }, (_, i) => i < Math.round(ratingValue));
 
   const queryStr = item.vicinity && !item.vicinity.includes('Hotelbeds')
-    ? `${item.name}, ${item.vicinity}`
+    ? (item.vicinity.toLowerCase().startsWith(item.name.toLowerCase())
+      ? item.vicinity
+      : `${item.name}, ${item.vicinity}`)
     : `${item.name}, ${destination}`;
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryStr)}${

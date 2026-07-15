@@ -78,14 +78,14 @@ export async function enrichItineraryWithLocalTransport(
   
   const promises = Array.from(locationsToResolve).map(async (locName) => {
     try {
-      // Query Google Directions API with Transit mode
+      // Query Geoapify Routing API via Transit/Drive mode
       const transitResult = await getTransitDirections(hotelName, `${locName}, ${destination}`);
       
-      // If Directions API was bypassed or failed and returned default fallback coordinates
-      if (transitResult.distance_km === 10.0 && transitResult.transit_summary === 'Cab/Auto commute') {
+      // If Geoapify returned a zero or clearly invalid distance, use the smart deterministic fallback
+      if (!transitResult.distance_km || transitResult.distance_km <= 0) {
         const smart = getSmartFallback(hotelName, locName);
         distanceCache[locName] = {
-          transit_summary: 'Cab/Auto commute',
+          transit_summary: `Cab/Auto commute (~${smart.distance_km} km)`,
           steps: [`Commute from ${hotelName} to ${locName}`],
           distance_km: smart.distance_km,
           duration_min: smart.duration_min,
@@ -96,9 +96,10 @@ export async function enrichItineraryWithLocalTransport(
         distanceCache[locName] = transitResult;
       }
     } catch (err: any) {
+      logger.warn(`[localTransitEnricher] Geoapify routing failed for '${locName}': ${(err as Error).message}. Using smart fallback.`);
       const smart = getSmartFallback(hotelName, locName);
       distanceCache[locName] = {
-        transit_summary: 'Cab/Auto commute',
+        transit_summary: `Cab/Auto commute (~${smart.distance_km} km)`,
         steps: [`Commute from ${hotelName} to ${locName}`],
         distance_km: smart.distance_km,
         duration_min: smart.duration_min,
@@ -163,13 +164,15 @@ export async function enrichItineraryWithLocalTransport(
         totalLocalTransportCost += travelExpense;
         dayTotalInr += travelExpense;
 
-        // Track distances for the local_transport panel
+        // Track distances for the local_transport panel (deduplicated by attraction name)
         if (!distancesFromHotelList.some(d => d.attraction === item.location)) {
+          const durationMin = data.duration_min || Math.round(distance * 2.2 + 3);
+          const modeForDuration = data.mode === 'walking' ? 'walking' : distance < 6 ? 'auto' : 'cab';
           distancesFromHotelList.push({
             attraction: item.location,
             distance_km: distance,
             distance_text: `${distance} km`,
-            duration_text: routeNote
+            duration_text: `${durationMin} min via ${modeForDuration}`,
           });
         }
 

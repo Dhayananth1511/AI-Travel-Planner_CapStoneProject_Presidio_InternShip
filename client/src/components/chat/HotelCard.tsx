@@ -39,9 +39,13 @@ export const HotelCard: React.FC<HotelCardProps> = ({
   const stars = Array.from({ length: 5 }, (_, i) => i < ratingCount);
 
   const queryHotel = hotel.address
-    ? `${hotel.name}, ${hotel.address}`
+    ? (hotel.address.toLowerCase().startsWith(hotel.name.toLowerCase())
+      ? hotel.address
+      : `${hotel.name}, ${hotel.address}`)
     : (hotel.vicinity && !hotel.vicinity.includes('Hotelbeds')
-      ? `${hotel.name}, ${hotel.vicinity}`
+      ? (hotel.vicinity.toLowerCase().startsWith(hotel.name.toLowerCase())
+        ? hotel.vicinity
+        : `${hotel.name}, ${hotel.vicinity}`)
       : `${hotel.name}, ${destination}`);
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryHotel)}`;
