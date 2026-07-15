@@ -558,9 +558,11 @@ export default function ChatPage() {
         doc.setTextColor(79, 70, 229); // indigo link color
         let truncatedHotelName = selectedHotelName.length > 22 ? selectedHotelName.substring(0, 20) + '...' : selectedHotelName;
         const hotelCardMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-          context.accommodation?.selected_hotel?.vicinity 
-            ? `${selectedHotelName}, ${context.accommodation.selected_hotel.vicinity}` 
-            : `${selectedHotelName} ${context.input?.destination || ''}`
+          context.accommodation?.selected_hotel?.address
+            ? `${selectedHotelName}, ${context.accommodation.selected_hotel.address}`
+            : (context.accommodation?.selected_hotel?.vicinity 
+              ? `${selectedHotelName}, ${context.accommodation.selected_hotel.vicinity}` 
+              : `${selectedHotelName} ${context.input?.destination || ''}`)
         )}`;
         doc.textWithLink(truncatedHotelName, 148, y + 10, { url: hotelCardMapsUrl });
         
@@ -721,9 +723,11 @@ export default function ChatPage() {
             doc.setTextColor(79, 70, 229); // clickable link style
             
             const hotelMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              context.accommodation?.selected_hotel?.vicinity 
-                ? `${selectedHotelName}, ${context.accommodation.selected_hotel.vicinity}` 
-                : `${selectedHotelName} ${context.input?.destination || ''}`
+              context.accommodation?.selected_hotel?.address
+                ? `${selectedHotelName}, ${context.accommodation.selected_hotel.address}`
+                : (context.accommodation?.selected_hotel?.vicinity 
+                  ? `${selectedHotelName}, ${context.accommodation.selected_hotel.vicinity}` 
+                  : `${selectedHotelName} ${context.input?.destination || ''}`)
             )}`;
             doc.textWithLink(selectedHotelName, 24, y, { url: hotelMapsUrl });
             
@@ -1630,10 +1634,9 @@ export default function ChatPage() {
                                 )}
                               </div>
                             )}
-
                             {/* Hotels List */}
                             <div className="flex flex-col gap-2.5">
-                               {hotelsList.map((hotel: any, idx: number) => {
+                              {hotelsList.map((hotel: any, idx: number) => {
                                 const isRecommended = hotel.name === context.accommodation.recommended;
                                 const ratingCount = Math.round(hotel.rating || 4.0);
                                 const stars = Array.from({ length: 5 }, (_, i) => i < ratingCount);
@@ -1654,9 +1657,11 @@ export default function ChatPage() {
                                     onClick={(e) => {
                                       const target = e.target as HTMLElement;
                                       if (target.tagName !== 'BUTTON' && !target.closest('button') && target.tagName !== 'A' && !target.closest('a')) {
-                                        const queryHotel = hotel.vicinity && !hotel.vicinity.includes('Hotelbeds')
-                                          ? `${hotel.name}, ${hotel.vicinity}`
-                                          : `${hotel.name}, ${context.input?.destination || ''}`;
+                                        const queryHotel = hotel.address
+                                          ? `${hotel.name}, ${hotel.address}`
+                                          : (hotel.vicinity && !hotel.vicinity.includes('Hotelbeds')
+                                            ? `${hotel.name}, ${hotel.vicinity}`
+                                            : `${hotel.name}, ${context.input?.destination || ''}`);
                                         window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryHotel)}`, '_blank');
                                       }
                                     }}
@@ -1674,9 +1679,11 @@ export default function ChatPage() {
                                           )}
                                           <a
                                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                              hotel.vicinity && !hotel.vicinity.includes('Hotelbeds')
-                                                ? `${hotel.name}, ${hotel.vicinity}`
-                                                : `${hotel.name}, ${context.input?.destination || ''}`
+                                              hotel.address
+                                                ? `${hotel.name}, ${hotel.address}`
+                                                : (hotel.vicinity && !hotel.vicinity.includes('Hotelbeds')
+                                                  ? `${hotel.name}, ${hotel.vicinity}`
+                                                  : `${hotel.name}, ${context.input?.destination || ''}`)
                                             )}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
@@ -2532,9 +2539,11 @@ export default function ChatPage() {
                                           Base Stay at{' '}
                                           <a
                                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                              context.accommodation?.selected_hotel?.vicinity 
-                                                ? `${hotelName}, ${context.accommodation.selected_hotel.vicinity}` 
-                                                : `${hotelName} ${context.input?.destination || ''}`
+                                              context.accommodation?.selected_hotel?.address
+                                                ? `${hotelName}, ${context.accommodation.selected_hotel.address}`
+                                                : (context.accommodation?.selected_hotel?.vicinity
+                                                  ? `${hotelName}, ${context.accommodation.selected_hotel.vicinity}`
+                                                  : `${hotelName} ${context.input?.destination || ''}`)
                                             )}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
