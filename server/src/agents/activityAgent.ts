@@ -100,6 +100,13 @@ export const activityTool = tool(
     data = data || {};
     data.attraction_options = Array.isArray(data.attraction_options) ? data.attraction_options : [];
 
+    // Track original API names before LLM filtering (to reliably tag source_type)
+    const originalApiNames = new Set<string>(
+      data.attraction_options
+        .filter((a: any) => a.source_type === 'geoapify_places' || a.source_type === 'hotelbeds_api')
+        .map((a: any) => (a.name || '').toLowerCase().trim())
+    );
+
     // Filter, Supplement, Rate & Sort Attractions with LLM
     try {
       const attractionCount = Math.max(8, Math.min(30, days * 4));
@@ -111,12 +118,22 @@ export const activityTool = tool(
 
       const parsed = extractJsonObject(filterRes.content.toString());
       if (parsed && Array.isArray(parsed.attractions)) {
-        data.attraction_options = parsed.attractions;
-        data.attractions = parsed.attractions.map((a: any) => a.name);
+        // Cross-validate source_type: if the name was in the original API list → geoapify_places
+        // If it wasn't → it was supplemented by the LLM → llm_recommendation
+        data.attraction_options = parsed.attractions.map((a: any) => {
+          const nameKey = (a.name || '').toLowerCase().trim();
+          const wasFromApi = originalApiNames.has(nameKey);
+          return {
+            ...a,
+            source_type: wasFromApi ? 'geoapify_places' : 'llm_recommendation',
+            is_llm_recommended: !wasFromApi,
+          };
+        });
+        data.attractions = data.attraction_options.map((a: any) => a.name);
       }
     } catch (err) {
       logger.error('Activity Agent failed to filter / supplement raw attractions', err);
-      // Fallback: if filtering fails, keep whatever attractions we had but ensure they have descriptions
+      // Fallback: keep attractions with correct source tags
       data.attraction_options = data.attraction_options.map((item: any) => ({
         ...item,
         description: item.description || `A popular local attraction in ${destination}.`

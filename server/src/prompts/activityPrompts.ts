@@ -42,16 +42,20 @@ Briefly explain if these matches fit traveler preferences, and highlight 2-3 key
 }
 
 export function getActivityFilteringPrompt(destination: string, attractionCount: number): string {
-  return `You are TripPlanner's Sightseeing & Activities Specialist. You are given a list of tourist attractions in or near ${destination} retrieved from a directory API.
+  return `You are TripPlanner's Sightseeing & Activities Specialist. You are given a raw list of tourist attractions in or near ${destination} retrieved from a live geo-directory API.
 Your task is to create a high-quality, curated, and MIXED list of exactly ${attractionCount} tourist attractions for a trip to ${destination}.
 
 Follow these strict rules:
-1. STRICT FILTERING (Tourist Places Only): Keep ONLY genuine sightseeing/tourist spots (famous landmarks, viewpoints, parks, historical structures, monuments, temples, museums, scenic spots). Strictly filter out and remove any municipal offices, administrative utilities, government buildings, transit hubs (bus stands, taxi ranks, train stations), local shops, or ordinary facilities.
-2. ALL MIXED: Create a blended/mixed list. Take the best genuine tourist attractions from the API features list, and MIX them with the most famous, must-visit tourist landmark recommendations for ${destination} that might be missing from the API. The final list should feel premium and comprehensive.
-3. RATING & POPULARITY SORT: Assign realistic ratings (1.0 to 5.0) and review counts (user_ratings_total) based on real-world fame. You must sort the final list in descending order from highest rating (most rated/popular) to lowest rating (least rated/popular).
-4. TARGET COUNT: You must return exactly ${attractionCount} attractions. If there are not enough genuine tourist spots in the API list, supplement them with famous sightseeing spots. If there are too many, prune them to keep only the ${attractionCount} highest-rated tourist places.
+1. STRICT FILTERING (Tourist Places Only): Keep ONLY genuine sightseeing/tourist spots (famous landmarks, viewpoints, parks, historical structures, monuments, temples, museums, scenic spots). Strictly remove any municipal offices, administrative utilities, government buildings, transit hubs (bus stands, taxi ranks, train stations), local shops, or ordinary facilities.
+2. MANDATORY MIX: You MUST produce a blended list. Take the best genuine tourist attractions from the provided API list, then SUPPLEMENT it with the most famous, must-visit, iconic landmarks for ${destination} that are NOT already in the API list. The final list MUST contain both API-sourced and AI-recommended entries.
+3. RATING & POPULARITY SORT: Assign realistic ratings (1.0 to 5.0) and review counts based on real-world fame. Sort the final list in descending order by rating.
+4. TARGET COUNT: Return exactly ${attractionCount} attractions. Supplement with famous sightseeing spots if the API list is insufficient.
+5. SOURCE TAGGING (CRITICAL): You MUST correctly set the "source_type" field for every single attraction:
+   - If the attraction came FROM the provided API list: set source_type to exactly "geoapify_places"
+   - If you ADDED or SUPPLEMENTED it yourself (not in the API list): set source_type to exactly "llm_recommendation"
+   This is critical for the UI badge display. Do not set all entries to the same source_type.
 
-Format your reply ONLY as a valid JSON object of this structure:
+Format your reply ONLY as a valid JSON object of this structure (no markdown, no explanation, no code block):
 {
   "attractions": [
     {
@@ -59,10 +63,10 @@ Format your reply ONLY as a valid JSON object of this structure:
       "vicinity": "Address or area, ${destination}",
       "rating": 4.9,
       "user_ratings_total": 45000,
-      "description": "Short description (max 12 words) explaining why this is a great tourist spot",
-      "place_id": "original_place_id_or_llm_recommendation_id",
+      "description": "Short 1-sentence description (max 12 words) of why this is a great tourist spot",
+      "place_id": "original_place_id_if_from_api_or_llm-rec-NNN",
       "types": ["tourism.attraction"],
-      "source_type": "geoapify_places" // set to "geoapify_places" if it came from the API, or "llm_recommendation" if you added/supplemented it
+      "source_type": "geoapify_places"
     }
   ]
 }`;

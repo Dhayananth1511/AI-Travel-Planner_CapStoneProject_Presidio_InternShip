@@ -84,11 +84,22 @@ export async function runLocalTransitAgent(
   // ── Resolve distances in parallel via Geoapify → fallback ─────────────
   const distanceCache: Record<string, any> = {};
 
+  // Maximum realistic local transit distance (hotel → tourist spot within a city)
+  // Anything > 50km indicates a geocoding failure (hotel resolved to wrong city/country)
+  const MAX_LOCAL_TRANSIT_KM = 50;
+
   await Promise.all(
     Array.from(locationsToResolve).map(async (locName) => {
       try {
-        const transit = await getTransitDirections(hotelName, `${locName}, ${destination}`);
-        if (!transit.distance_km || transit.distance_km <= 0) {
+        // Always include destination city context so Geoapify geocodes correctly
+        const hotelWithCity = `${hotelName}, ${destination}`;
+        const transit = await getTransitDirections(hotelWithCity, `${locName}, ${destination}`);
+
+        const isUnrealistic = !transit.distance_km || transit.distance_km <= 0 || transit.distance_km > MAX_LOCAL_TRANSIT_KM;
+        if (isUnrealistic) {
+          if (transit.distance_km > MAX_LOCAL_TRANSIT_KM) {
+            logger.warn(`[LocalTransitAgent] Unrealistic distance ${transit.distance_km}km for ${hotelName}→${locName}. Falling back to smart estimate.`);
+          }
           const fb = getSmartFallback(hotelName, locName);
           distanceCache[locName] = {
             distance_km: fb.distance_km,
