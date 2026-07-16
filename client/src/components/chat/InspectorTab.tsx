@@ -504,10 +504,30 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
                       )}
                     </div>
 
-                    {hotelsList.some((h: any) => h.is_llm_recommended) && (
+                    {/* Data source legend for lodging */}
+                    <div className="flex gap-1.5 flex-wrap items-center mt-1 pb-1">
+                      <span className="text-[8.5px] text-slate-500 font-bold uppercase tracking-wider mr-1">Provenances:</span>
+                      {hotelsList.some((h: any) => h.source_type === 'hotelbeds_api') && (
+                        <span className="text-[7.5px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-400/20 text-blue-600 dark:text-blue-400 leading-none">
+                          🏨 HB API
+                        </span>
+                      )}
+                      {hotelsList.some((h: any) => h.source_type === 'geoapify_places') && (
+                        <span className="text-[7.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-400/20 text-emerald-650 dark:text-emerald-400 leading-none">
+                          🗺️ Geoapify
+                        </span>
+                      )}
+                      {hotelsList.some((h: any) => h.source_type === 'llm_recommendation' || h.is_llm_recommended) && (
+                        <span className="text-[7.5px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-400/20 text-amber-600 dark:text-amber-400 leading-none">
+                          💡 AI Recomended
+                        </span>
+                      )}
+                    </div>
+
+                    {hotelsList.every((h: any) => h.is_llm_recommended || h.source_type === 'llm_recommendation') && (
                       <div className={`p-3 rounded-lg border flex items-start gap-2.5 ${
                         isDark
-                          ? 'bg-amber-955/15 border-amber-800/30 text-amber-300'
+                          ? 'bg-amber-955/15 border-amber-800/30 text-amber-399'
                           : 'bg-amber-50 border-amber-200 text-amber-800'
                       }`}>
                         <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />

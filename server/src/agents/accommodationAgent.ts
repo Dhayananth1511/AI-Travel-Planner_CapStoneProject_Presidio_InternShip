@@ -68,6 +68,9 @@ export const accommodationTool = tool(
   async ({ destination, check_in, check_out, travelers, tier, max_price_per_night }) => {
     logger.debug('Accommodation tool fetching from MCP', { destination, check_in, check_out, travelers, tier, max_price_per_night });
     const data = await searchHotels(destination, check_in, check_out, travelers);
+    if (!data.hotels) {
+      data.hotels = [];
+    }
 
     const nights = Math.max(
       1,
@@ -83,16 +86,45 @@ export const accommodationTool = tool(
       logger.warn(`[accommodationAgent] Geoapify hotel lookup failed: ${geoErr.message}`);
     }
 
-    // Merge: start from Hotelbeds, then add non-duplicate Geoapify hotels
-    const existingNames = new Set((data.hotels || []).map((h: any) => h.name.toLowerCase()));
-    const uniqueGeoapify = geoapifyHotels.filter((h: any) => !existingNames.has(h.name.toLowerCase()));
-    data.hotels = [...(data.hotels || []), ...uniqueGeoapify];
-
-    // If both Hotelbeds and Geoapify returned nothing, fall back to LLM recommendations
-    if (!data.hotels || data.hotels.length === 0) {
-      logger.info('No API hotel data from Hotelbeds or Geoapify; triggering LLM fallback recommendations', { destination });
-      data.hotels = await generateAccommodationFallback(destination, check_in, check_out, travelers, max_price_per_night);
+    // Always fetch LLM recommendations to mix them together
+    let llmHotels: any[] = [];
+    try {
+      llmHotels = await generateAccommodationFallback(destination, check_in, check_out, travelers, max_price_per_night);
+      logger.info(`[accommodationAgent] LLM recommendations generated ${llmHotels.length} hotels for ${destination}`);
+    } catch (llmErr: any) {
+      logger.warn(`[accommodationAgent] LLM hotel recommendations generation failed: ${llmErr.message}`);
     }
+
+    // Tag all hotels with their proper source_type
+    const taggedHotelbeds = (data.hotels || []).map((h: any) => ({
+      ...h,
+      source_type: h.source_type || 'hotelbeds_api',
+    }));
+
+    const taggedGeoapify = geoapifyHotels.map((h: any) => ({
+      ...h,
+      source_type: h.source_type || 'geoapify_places',
+    }));
+
+    const taggedLlm = llmHotels.map((h: any) => ({
+      ...h,
+      source_type: h.source_type || 'llm_recommendation',
+      is_llm_recommended: true, 
+    }));
+
+    // Merge and deduplicate by name (case-insensitive)
+    const existingNames = new Set<string>();
+    const mergedHotels: any[] = [];
+
+    [...taggedHotelbeds, ...taggedGeoapify, ...taggedLlm].forEach((hotel: any) => {
+      const nameKey = (hotel.name || '').toLowerCase().trim();
+      if (nameKey && !existingNames.has(nameKey)) {
+        existingNames.add(nameKey);
+        mergedHotels.push(hotel);
+      }
+    });
+
+    data.hotels = mergedHotels;
 
     // If the user specified a strict price ceiling, pre-filter hotels to respect it.
     // If no hotels are found under the ceiling, keep all hotels but mark the constraint notice.
@@ -123,9 +155,7 @@ export const accommodationTool = tool(
       reasoning = 'Lodgings are chosen near primary destination routes.';
     }
 
-    // ── STRICT PRICE-BASED CATEGORY THRESHOLDS ──────────────────────────────
-    // Default categories: Budget (<₹5000/night), Mid-Range (₹5000-₹15000/night), Luxury (>₹15000/night)
-    // If a max_price_per_night constraint is provided, thresholds scale dynamically relative to it.
+    // ── Price categorization ──────────────────────────────
     let BUDGET_MAX = 4999;
     let MID_MIN = 5000;
     let MID_MAX = 15000;
@@ -138,16 +168,16 @@ export const accommodationTool = tool(
       LUXURY_MIN = MID_MAX + 1;
     }
 
-    // Sort all fetched hotels by price
-    const hotelsList = [...(data.hotels || [])].sort((a, b) => a.price_per_night_inr - b.price_per_night_inr);
-
     const categories: { budget: any[]; mid_range: any[]; luxury: any[] } = {
       budget: [],
       mid_range: [],
       luxury: [],
     };
 
-    // Classify real hotels by exact price thresholds
+    // Sort all matched hotels by price (ascending)
+    const hotelsList = [...(data.hotels || [])].sort((a, b) => a.price_per_night_inr - b.price_per_night_inr);
+
+    // Classify real hotels by exact price thresholds first
     hotelsList.forEach((hotel: any) => {
       const price = hotel.price_per_night_inr || 0;
       if (price <= BUDGET_MAX) {
@@ -158,6 +188,24 @@ export const accommodationTool = tool(
         categories.luxury.push(hotel);
       }
     });
+
+    // Check if any category is empty. If so, redistribute using tertiles to ensure "all time 3 category" are populated
+    const hasEmptyCategory = categories.budget.length === 0 || categories.mid_range.length === 0 || categories.luxury.length === 0;
+    if (hasEmptyCategory && hotelsList.length >= 3) {
+      logger.info('Some category was empty under strict thresholds; falling back to tertile partitioning');
+      const third = Math.floor(hotelsList.length / 3);
+      categories.budget = hotelsList.slice(0, third);
+      categories.mid_range = hotelsList.slice(third, 2 * third);
+      categories.luxury = hotelsList.slice(2 * third);
+    } else if (hasEmptyCategory && hotelsList.length === 2) {
+      categories.budget = [hotelsList[0]];
+      categories.mid_range = [hotelsList[1]];
+      categories.luxury = [hotelsList[1]];
+    } else if (hasEmptyCategory && hotelsList.length === 1) {
+      categories.budget = [hotelsList[0]];
+      categories.mid_range = [hotelsList[0]];
+      categories.luxury = [hotelsList[0]];
+    }
 
     // Within each price category, sort the list by rating (descending) so the highest-rated stay is recommended first.
     categories.budget.sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
@@ -215,15 +263,26 @@ export const accommodationTool = tool(
       data.price_per_night = selectedHotel.price_per_night_inr;
     }
 
+    // Compute thresholds dynamically based on Distributed Categorization to show on frontend
+    const formatPrice = (p: number) => {
+      if (p >= 1000) return `₹${Math.round(p/1000)}k`;
+      return `₹${p}`;
+    };
+
+    const maxBudget = categories.budget.length > 0 ? Math.max(...categories.budget.map(h => h.price_per_night_inr)) : BUDGET_MAX;
+    const minMid = categories.mid_range.length > 0 ? Math.min(...categories.mid_range.map(h => h.price_per_night_inr)) : MID_MIN;
+    const maxMid = categories.mid_range.length > 0 ? Math.max(...categories.mid_range.map(h => h.price_per_night_inr)) : MID_MAX;
+    const minLux = categories.luxury.length > 0 ? Math.min(...categories.luxury.map(h => h.price_per_night_inr)) : LUXURY_MIN;
+
     const finalResult = {
       ...data,
       categories,
       selected_category: selectedCategory,
       selected_hotel: selectedHotel,
       category_thresholds: {
-        budget: `Below ₹${BUDGET_MAX + 1}/night`,
-        mid_range: `₹${MID_MIN} – ₹${MID_MAX}/night`,
-        luxury: `Above ₹${MID_MAX}/night`,
+        budget: `<${formatPrice(maxBudget + 1)}/night`,
+        mid_range: `${formatPrice(minMid)} – ${formatPrice(maxMid)}/night`,
+        luxury: `>${formatPrice(minLux - 1)}/night`,
       },
       reasoning,
       ...(priceConstraintNotice ? { price_constraint_notice: priceConstraintNotice } : {}),
