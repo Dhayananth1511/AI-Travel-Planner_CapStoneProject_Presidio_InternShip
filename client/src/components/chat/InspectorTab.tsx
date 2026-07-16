@@ -914,7 +914,72 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
             isDark={isDark}
             isSaving={transportSaving}
             handleSelectTransport={handleSelectTransport}
+            travelDate={context.input?.start_date}
           />
+        </div>
+      )}
+
+      {/* ACTIVITIES SPECIALIST ATTENTION */}
+      {context.activities && (
+        <div className="premium-card rounded-xl p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
+              isDark ? 'text-indigo-400' : 'text-indigo-700'
+            }`}>
+              🎡 Sightseeing Specialist Agent
+            </h4>
+            {/* Source legend for sightseeing */}
+            <div className="flex gap-1 flex-wrap">
+              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'geoapify_places') && (
+                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
+                  🗺️ Geo
+                </span>
+              )}
+              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'hotelbeds_api') && (
+                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-blue-500/15 border border-blue-400/30 text-blue-600 dark:text-blue-400 leading-none uppercase tracking-wide">
+                  🏨 HB
+                </span>
+              )}
+              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'llm_recommendation' || a.is_llm_recommended) && (
+                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
+                  💡 AI
+                </span>
+              )}
+            </div>
+          </div>
+
+          {Array.isArray(context.activities.attraction_options) && context.activities.attraction_options.length > 0 ? (
+            <div className="space-y-3 pt-1">
+              <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                📍 Curated Places of Interest
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {context.activities.attraction_options.map((opt: any, idx: number) => {
+                  // Only display real tourist places/attractions (exclude hotels showing on activities)
+                  const nameStr = opt.name || '';
+                  if (
+                    nameStr.toLowerCase().includes('hotel') ||
+                    nameStr.toLowerCase().includes('stay') ||
+                    nameStr.toLowerCase().includes('inn') ||
+                    nameStr.toLowerCase().includes('resort')
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <AttractionCard
+                      key={idx}
+                      item={opt}
+                      idx={idx}
+                      destination={context.input?.destination || ''}
+                      isDark={isDark}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-550 italic">No sightseeing coordinates mapped in this area.</p>
+          )}
         </div>
       )}
 
@@ -964,19 +1029,36 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
                     ? isDark ? 'text-amber-400 bg-amber-950/30 border-amber-800/30' : 'text-amber-700 bg-amber-50 border-amber-200'
                     : isDark ? 'text-blue-400 bg-blue-950/30 border-blue-800/30' : 'text-blue-700 bg-blue-50 border-blue-200';
 
+                  const isHub = item.attraction?.includes('Entry/Exit Hub');
+                  const isFlightHub = item.attraction?.toLowerCase().includes('airport');
+                  const isTrainHub = item.attraction?.toLowerCase().includes('railway');
+                  const hubIcon = isFlightHub ? '🛫' : isTrainHub ? '🚆' : '🚌';
+
                   return (
                     <div
                       key={idx}
                       className={`flex items-center justify-between rounded-lg border px-2.5 py-2 gap-2 transition-all hover:shadow-sm ${
-                        isDark
+                        isHub
+                          ? isDark
+                            ? 'bg-indigo-950/20 border-indigo-500/35 hover:border-indigo-450/50'
+                            : 'bg-indigo-50/50 border-indigo-250 hover:border-indigo-300'
+                          : isDark
                           ? 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
                       {/* Attraction name */}
                       <div className="flex items-start gap-1.5 min-w-0 flex-1">
-                        <span className="text-[11px] mt-0.5 shrink-0">📌</span>
-                        <span className={`text-[10.5px] font-semibold line-clamp-2 leading-snug ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                        <span className="text-[11px] mt-0.5 shrink-0">{isHub ? hubIcon : '📌'}</span>
+                        <span className={`text-[10.5px] font-semibold line-clamp-2 leading-snug ${
+                          isHub
+                            ? isDark
+                              ? 'text-indigo-200 font-bold'
+                              : 'text-indigo-850 font-bold'
+                            : isDark
+                            ? 'text-slate-200'
+                            : 'text-slate-800'
+                        }`}>
                           {item.attraction}
                         </span>
                       </div>
@@ -1063,70 +1145,6 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* ACTIVITIES SPECIALIST ATTENTION */}
-      {context.activities && (
-        <div className="premium-card rounded-xl p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
-              isDark ? 'text-indigo-400' : 'text-indigo-700'
-            }`}>
-              🎡 Sightseeing Specialist Agent
-            </h4>
-            {/* Source legend for sightseeing */}
-            <div className="flex gap-1 flex-wrap">
-              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'geoapify_places') && (
-                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
-                  🗺️ Geo
-                </span>
-              )}
-              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'hotelbeds_api') && (
-                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-blue-500/15 border border-blue-400/30 text-blue-600 dark:text-blue-400 leading-none uppercase tracking-wide">
-                  🏨 HB
-                </span>
-              )}
-              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'llm_recommendation' || a.is_llm_recommended) && (
-                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
-                  💡 AI
-                </span>
-              )}
-            </div>
-          </div>
-
-          {Array.isArray(context.activities.attraction_options) && context.activities.attraction_options.length > 0 ? (
-            <div className="space-y-3 pt-1">
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                📍 Curated Places of Interest
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {context.activities.attraction_options.map((opt: any, idx: number) => {
-                  // Only display real tourist places/attractions (exclude hotels showing on activities)
-                  const nameStr = opt.name || '';
-                  if (
-                    nameStr.toLowerCase().includes('hotel') ||
-                    nameStr.toLowerCase().includes('stay') ||
-                    nameStr.toLowerCase().includes('inn') ||
-                    nameStr.toLowerCase().includes('resort')
-                  ) {
-                    return null;
-                  }
-                  return (
-                    <AttractionCard
-                      key={idx}
-                      item={opt}
-                      idx={idx}
-                      destination={context.input?.destination || ''}
-                      isDark={isDark}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-550 italic">No sightseeing coordinates mapped in this area.</p>
-          )}
         </div>
       )}
     </div>

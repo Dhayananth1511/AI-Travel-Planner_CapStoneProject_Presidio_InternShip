@@ -11,6 +11,7 @@ interface TransportOption {
   arrival?: string;
   data_source?: string;
   amenities?: string[];
+  distance_km?: number;
 }
 
 interface TransportData {
@@ -22,6 +23,7 @@ interface TransportData {
     mode: string;
   };
   reasoning?: string;
+  distance_km?: number;
 }
 
 interface TransportOptionsCardProps {
@@ -30,6 +32,7 @@ interface TransportOptionsCardProps {
   isDark: boolean;
   isSaving: boolean;
   handleSelectTransport: (operator: string, mode: string) => void;
+  travelDate?: string;
 }
 
 export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
@@ -38,7 +41,18 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
   isDark,
   isSaving,
   handleSelectTransport,
+  travelDate,
 }) => {
+  const formatDateNicely = (dateStr: string) => {
+    try {
+      const dateObj = new Date(dateStr);
+      if (isNaN(dateObj.getTime())) return dateStr;
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className={`p-3 rounded-lg border text-xs space-y-3 transition-colors ${
       isDark ? 'bg-indigo-950/20 border-slate-800' : 'bg-slate-50 border-slate-205'
@@ -70,6 +84,16 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
 
       {Array.isArray(transport.options) && transport.options.length > 0 ? (
         <div className="space-y-3">
+          {transport.distance_km && (
+            <div className={`p-2.5 rounded-lg border font-semibold flex items-center justify-between text-[10.5px] ${
+              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300 font-sans' : 'bg-white border-slate-200 text-slate-700'
+            }`}>
+              <span className="flex items-center gap-1">🛣️ Inter-City Route Distance:</span>
+              <span className={`font-extrabold text-xs ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                {transport.distance_km} km
+              </span>
+            </div>
+          )}
           <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             ✈️ Transit Options & Comparisons
           </p>
@@ -154,16 +178,41 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
                           )}
                         </div>
 
-                        <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          Schedule: <span className="font-bold">{option.departure || 'N/A'}</span> ➔ <span className="font-bold">{option.arrival || 'N/A'}</span>
+                        {/* Travel Date */}
+                        <div className={`text-[10px] font-semibold flex items-center gap-1 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                          <span>📅 Date:</span>
+                          <span className="font-bold">{travelDate ? formatDateNicely(travelDate) : 'Departure Date'}</span>
+                          {option.distance_km && (
+                            <span className={`text-[9.5px] font-normal ml-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                              ({option.distance_km} km journey)
+                            </span>
+                          )}
                         </div>
-                        
-                        <div className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-505'}`}>
-                          Duration: <span className="font-bold">{option.duration_hrs} hrs</span>
+
+                        {/* Premium Visual Timeline */}
+                        <div className="flex items-center gap-2 py-1 select-none">
+                          <div className="text-center">
+                            <p className="text-[10.5px] font-bold text-slate-800 dark:text-slate-200 leading-snug">{option.departure || '09:00'}</p>
+                            <p className="text-[7.5px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">DEP</p>
+                          </div>
+                          
+                          {/* Timeline Bar */}
+                          <div className="flex-1 flex flex-col items-center justify-center relative px-2">
+                            <span className="text-[7.5px] font-extrabold text-indigo-620 dark:text-indigo-400 font-sans z-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-1 -bottom-2 shrink-0 select-none">
+                              {option.duration_hrs} hrs
+                            </span>
+                            <div className="w-full h-0.5 border-t border-dashed border-slate-300 dark:border-slate-750"></div>
+                          </div>
+
+                          <div className="text-center">
+                            <p className="text-[10.5px] font-bold text-slate-800 dark:text-slate-200 leading-snug">{option.arrival || '11:00'}</p>
+                            <p className="text-[7.5px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">ARR</p>
+                          </div>
                         </div>
+
                         {option.mode?.toLowerCase() === 'flight' && (
-                          <div className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-505'}`}>
-                            Source: <span className="font-bold">{isLiveFlightSchedule ? 'Live schedule + estimated fare' : 'Estimated fallback data'}</span>
+                          <div className={`text-[9px] ${isDark ? 'text-slate-405' : 'text-slate-500'}`}>
+                            Source: <span className="font-semibold">{isLiveFlightSchedule ? 'Live schedule + estimated fare' : 'Estimated fallback data'}</span>
                           </div>
                         )}
                         {Array.isArray(option.amenities) && option.amenities.length > 0 && (

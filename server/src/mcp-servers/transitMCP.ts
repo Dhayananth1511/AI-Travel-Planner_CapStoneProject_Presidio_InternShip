@@ -20,6 +20,7 @@ export interface TransportOption {
   amenities?: string[];
   class?: string;
   data_source?: 'live_schedule_estimated_fare' | 'estimated_fallback' | 'hotelbeds_transfers';
+  distance_km?: number;
 }
 
 const IATA_MAP: Record<string, string> = {
@@ -108,9 +109,20 @@ export async function getTransportOptions(
   destination: string,
   travel_date: string,
   travelers: number = 1
-): Promise<{ options: TransportOption[]; estimated_cost_inr: number; selected_option?: TransportOption }> {
+): Promise<{ options: TransportOption[]; estimated_cost_inr: number; selected_option?: TransportOption; distance_km: number }> {
   return withRetry(async () => {
     const options: TransportOption[] = [];
+
+    // 1. Get real travel distance & time from Google Maps
+    let distanceKm = 300;
+    let durationMin = 360;
+    try {
+      const mapsData = await getDistanceMatrix(origin, destination);
+      distanceKm = mapsData.distance_km;
+      durationMin = mapsData.duration_min;
+    } catch {
+      // Keep fallbacks if Google lookup fails
+    }
 
     // 0. Fetch real transfer options via Hotelbeds if configured
     if (isHotelbedsConfigured('transfers')) {
@@ -130,23 +142,13 @@ export async function getTransportOptions(
               amenities: ['Hotel Pickup', 'Air Conditioning', 'Luggage Space'],
               class: 'Private Transfer',
               data_source: 'hotelbeds_transfers',
+              distance_km: distanceKm,
             });
           });
         }
       } catch (err: any) {
         console.warn(`Hotelbeds Transfer lookup warning: ${err.message}. Bypassing transfer search.`);
       }
-    }
-
-    // 1. Get real travel distance & time from Google Maps
-    let distanceKm = 300;
-    let durationMin = 360;
-    try {
-      const mapsData = await getDistanceMatrix(origin, destination);
-      distanceKm = mapsData.distance_km;
-      durationMin = mapsData.duration_min;
-    } catch {
-      // Keep fallbacks if Google lookup fails
     }
 
     // 2. Fetch real flight options via AviationStack
@@ -193,6 +195,7 @@ export async function getTransportOptions(
             amenities: ['In-Flight Meals', 'Baggage Allowance', 'AC', 'Entertainment'],
             class: 'Economy',
             data_source: 'live_schedule_estimated_fare',
+            distance_km: distanceKm,
           });
         });
       }
@@ -216,6 +219,7 @@ export async function getTransportOptions(
         amenities: ['Estimated Schedule', 'Cabin Bag', 'AC'],
         class: 'Economy',
         data_source: 'estimated_fallback',
+        distance_km: distanceKm,
       });
     }
 
@@ -236,6 +240,7 @@ export async function getTransportOptions(
       rating: 3.9,
       amenities: ['AC', 'Berths', 'Pantry Car', 'Charging Port'],
       class: '3AC Sleeper',
+      distance_km: distanceKm,
     });
 
     // 2AC (premium tier)
@@ -252,6 +257,7 @@ export async function getTransportOptions(
       rating: 4.2,
       amenities: ['AC', '2-Tier Berths', 'Meals Included', 'Charging Port'],
       class: '2AC Sleeper',
+      distance_km: distanceKm,
     });
 
     // 4. Add Bus options (Volvo Sleeper & Regular AC)
@@ -270,6 +276,7 @@ export async function getTransportOptions(
       rating: 4.0,
       amenities: ['AC', 'Blanket', 'Push-Back Seats', 'Charging Port'],
       class: 'Volvo Sleeper',
+      distance_km: distanceKm,
     });
 
     const busRegularPerPerson = Math.round(50 + distanceKm * 1.6);
@@ -285,6 +292,7 @@ export async function getTransportOptions(
       rating: 3.5,
       amenities: ['AC', 'Reclining Seats', 'Water Bottle'],
       class: 'Semi-Sleeper AC',
+      distance_km: distanceKm,
     });
 
     const cheapestOption = options.reduce((lowest, curr) =>
@@ -294,6 +302,7 @@ export async function getTransportOptions(
       options,
       estimated_cost_inr: cheapestOption?.cost_inr || 0,
       selected_option: options[0] || null, // default select first option
+      distance_km: distanceKm,
     };
   });
 }

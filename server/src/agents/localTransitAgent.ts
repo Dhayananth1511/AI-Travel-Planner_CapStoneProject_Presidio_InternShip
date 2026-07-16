@@ -49,8 +49,20 @@ export async function runLocalTransitAgent(
 
   logger.info(`[LocalTransitAgent] Calculating transit from hotel: "${hotelName}" in ${destination}`);
 
+  // Transit hub of the destination city (departure/arrival place)
+  const transportMode = context.transport?.selected_option?.mode || 'Flight';
+  let hubName = 'Airport';
+  if (transportMode === 'Train') {
+    hubName = 'Junction Railway Station';
+  } else if (transportMode === 'Bus') {
+    hubName = 'Central Bus Station';
+  }
+  const hubFullName = `${destination} ${hubName}`;
+
   // ── Collect unique non-hotel locations from the itinerary ──────────────
   const locationsToResolve = new Set<string>();
+  locationsToResolve.add(hubFullName);
+
   itinerary.days.forEach((day: any) => {
     if (Array.isArray(day.schedule)) {
       day.schedule.forEach((item: any) => {
@@ -107,6 +119,44 @@ export async function runLocalTransitAgent(
     distance_text: string;
     duration_text?: string;
   }> = [];
+
+  let hubCommute: any = null;
+  const hubData = distanceCache[hubFullName];
+  if (hubData) {
+    const dist = hubData.distance_km as number;
+    let travelExpense = 0;
+    let icon = '🚗';
+    let transitNote = '';
+    const travelMode = dist < 2 ? 'Walking' : dist < 6 ? 'Auto' : 'Cab';
+    icon = travelMode === 'Walking' ? '🚶' : travelMode === 'Auto' ? '🛺' : '🚗';
+    if (travelMode === 'Walking') {
+      travelExpense = 0;
+      transitNote = `${icon} Walk: ${dist} km, ~${hubData.duration_min} mins (free)`;
+    } else {
+      const baseFare = travelMode === 'Auto' ? 45 : 90;
+      const ratePerKm = travelMode === 'Auto' ? 12 : 16;
+      travelExpense = Math.round((baseFare + dist * ratePerKm) * 2); // round-trip (arrival + departure)
+      transitNote = `${icon} ${travelMode}: ${dist} km, ~${hubData.duration_min} mins (round-trip: ₹${travelExpense})`;
+    }
+
+    totalLocalTransportCost += travelExpense;
+
+    hubCommute = {
+      name: hubFullName,
+      type: transportMode === 'Flight' ? 'Airport' : transportMode === 'Train' ? 'Railway Station' : 'Bus Stand',
+      distance_km: dist,
+      duration_min: hubData.duration_min,
+      travel_cost_inr: travelExpense,
+      transport_note: transitNote,
+    };
+
+    distancesFromHotelList.push({
+      attraction: `➔ Entry/Exit Hub: ${hubFullName}`,
+      distance_km: dist,
+      distance_text: `${dist} km`,
+      duration_text: `${hubData.duration_min} min via ${travelMode.toLowerCase()}`,
+    });
+  }
 
   const updatedDays = itinerary.days.map((day: any) => {
     let dayTotalInr = 0;
@@ -222,12 +272,39 @@ export async function runLocalTransitAgent(
   };
 
   if (!isFeasible) {
-    const safeIncrease = Math.ceil(newTotalCost * 1.1);
-    updatedBudget.alternatives = [
-      `Choose a cheaper hotel tier (saves approx. ₹${Math.round(baseAccom * 0.4)})`,
-      `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round((baseFood / Math.max(1, updatedDays.length)) * 1.5)})`,
-      `Increase limit to ₹${safeIncrease} for comfortable traveling accommodations`,
-    ];
+    const safeIncrease = Math.ceil(newTotalCost * 1.15);
+    const alternatives: string[] = [];
+    const selectedTier = accommodation?.selected_category || 'mid_range';
+
+    // 1. Choose a cheaper hotel tier (only if not already budget and not skipped)
+    if (selectedTier !== 'budget' && selectedTier !== 'skipped' && baseAccom > 0) {
+      alternatives.push(`Choose a cheaper hotel tier (saves approx. ₹${Math.round(baseAccom * 0.4)})`);
+    }
+
+    // 2. Skip lodgings (only if not already skipped and has cost)
+    if (selectedTier !== 'skipped' && baseAccom > 0) {
+      alternatives.push(`Skip lodgings: arrange accommodation yourself (saves ₹${Math.round(baseAccom)})`);
+    }
+
+    // 3. Shorten duration (only if updatedDays.length > 2)
+    if (updatedDays.length > 2) {
+      alternatives.push(`Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round((baseFood / Math.max(1, updatedDays.length)) * 1.5)})`);
+    }
+
+    // 4. Reduce travelers count (only if travelers > 1)
+    if (travelers > 1) {
+      alternatives.push(`Reduce travelers count from ${travelers} to ${travelers - 1} (saves approx. ₹${Math.round(newTotalCost / travelers)})`);
+    }
+
+    // 5. Limit sightseeing (only if baseActivities > 0)
+    if (baseActivities > 0) {
+      alternatives.push(`Focus on free tourist attractions (saves up to ₹${Math.round(baseActivities)})`);
+    }
+
+    // 6. Increase budget limit (always include)
+    alternatives.push(`Increase limit to ₹${safeIncrease} for comfortable traveling accommodations`);
+
+    updatedBudget.alternatives = alternatives;
   }
 
   const local_transport = {
@@ -239,6 +316,7 @@ export async function runLocalTransitAgent(
       { mode: 'Auto Rickshaw', rate_per_km: 10, base_fare: 40 },
       { mode: 'Rent a Bike', rate_per_km: 5, base_fare: 200 },
     ],
+    hub_commute: hubCommute,
   };
 
   logger.info(

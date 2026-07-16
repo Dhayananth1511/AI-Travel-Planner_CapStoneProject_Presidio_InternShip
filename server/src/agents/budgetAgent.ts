@@ -198,15 +198,39 @@ export async function runBudgetAgent(context: TripContext): Promise<BudgetBreakd
 
   // If way over budget, suggest realistic alternatives
   if (!isFeasible) {
-    // Add a 15% buffer over the base trip cost (without local transport) to give the user
-    // enough room for commute costs added by LocalTransitAgent. The old 30% was too aggressive
-    // and caused the 'Increase limit → still over budget' infinite loop.
     const suggestedBudgetWithBuffer = Math.ceil(totalCost * 1.15);
-    breakdown.alternatives = [
-      `Choose a cheaper hotel tier (saves approx. ₹${Math.round(accommodationSelection.cost * 0.4)})`,
-      `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round((foodSelection.cost / Math.max(1, days)) * 1.5)})`,
-      `Increase limit to ₹${suggestedBudgetWithBuffer} for comfortable traveling accommodations`,
-    ];
+    const alternatives: string[] = [];
+    const selectedTier = accommodation?.selected_category || 'mid_range';
+
+    // 1. Choose a cheaper hotel tier (only if not already budget and not skipped)
+    if (selectedTier !== 'budget' && selectedTier !== 'skipped' && accommodationSelection.cost > 0) {
+      alternatives.push(`Choose a cheaper hotel tier (saves approx. ₹${Math.round(accommodationSelection.cost * 0.4)})`);
+    }
+
+    // 2. Skip lodgings (only if not already skipped and has cost)
+    if (selectedTier !== 'skipped' && accommodationSelection.cost > 0) {
+      alternatives.push(`Skip lodgings: arrange accommodation yourself (saves ₹${Math.round(accommodationSelection.cost)})`);
+    }
+
+    // 3. Shorten duration (only if days > 2)
+    if (days > 2) {
+      alternatives.push(`Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round((foodSelection.cost / Math.max(1, days)) * 1.5)})`);
+    }
+
+    // 4. Reduce travelers count (only if travelers > 1)
+    if (travelers > 1) {
+      alternatives.push(`Reduce travelers count from ${travelers} to ${travelers - 1} (saves approx. ₹${Math.round(totalCost / travelers)})`);
+    }
+
+    // 5. Limit sightseeing (only if activityCost > 0)
+    if (activityCost > 0) {
+      alternatives.push(`Focus on free tourist attractions (saves up to ₹${Math.round(activityCost)})`);
+    }
+
+    // 6. Increase budget limit (always include)
+    alternatives.push(`Increase limit to ₹${suggestedBudgetWithBuffer} for comfortable traveling accommodations`);
+
+    breakdown.alternatives = alternatives;
   }
 
   return breakdown;

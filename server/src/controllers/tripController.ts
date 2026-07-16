@@ -590,11 +590,38 @@ export const selectTransport = async (req: Request, res: Response): Promise<void
         newBudget.is_feasible = newBudget.total_cost_inr <= (trip.input.budget_inr || 30000);
         if (!newBudget.is_feasible) {
           const safeIncrease = Math.ceil(newBudget.total_cost_inr * 1.15);
-          newBudget.alternatives = [
-            `Choose a cheaper hotel tier (saves approx. ₹${Math.round((newBudget.accommodation || 0) * 0.4)})`,
-            `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round(((newBudget.food || 0) / Math.max(1, tripDayCount)) * 1.5)})`,
-            `Increase limit to ₹${safeIncrease} for comfortable traveling accommodations`,
-          ];
+          const alternatives: string[] = [];
+          const selectedTier = trip.accommodation?.selected_category || 'mid_range';
+
+          // 1. Choose a cheaper hotel tier (only if not already budget and not skipped)
+          if (selectedTier !== 'budget' && selectedTier !== 'skipped' && (newBudget.accommodation || 0) > 0) {
+            alternatives.push(`Choose a cheaper hotel tier (saves approx. ₹${Math.round((newBudget.accommodation || 0) * 0.4)})`);
+          }
+
+          // 2. Skip lodgings (only if not already skipped and has cost)
+          if (selectedTier !== 'skipped' && (newBudget.accommodation || 0) > 0) {
+            alternatives.push(`Skip lodgings: arrange accommodation yourself (saves ₹${Math.round(newBudget.accommodation || 0)})`);
+          }
+
+          // 3. Shorten duration (only if tripDayCount > 2)
+          if (tripDayCount > 2) {
+            alternatives.push(`Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round(((newBudget.food || 0) / Math.max(1, tripDayCount)) * 1.5)})`);
+          }
+
+          // 4. Reduce travelers count (only if travelers > 1)
+          if (travelers > 1) {
+            alternatives.push(`Reduce travelers count from ${travelers} to ${travelers - 1} (saves approx. ₹${Math.round(newBudget.total_cost_inr / travelers)})`);
+          }
+
+          // 5. Limit sightseeing (only if activities cost > 0)
+          if ((newBudget.activities || 0) > 0) {
+            alternatives.push(`Focus on free tourist attractions (saves up to ₹${Math.round(newBudget.activities || 0)})`);
+          }
+
+          // 6. Increase budget limit (always include)
+          alternatives.push(`Increase limit to ₹${safeIncrease} for comfortable traveling accommodations`);
+
+          newBudget.alternatives = alternatives;
         }
       }
     }
