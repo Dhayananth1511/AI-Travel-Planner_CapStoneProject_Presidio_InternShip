@@ -49,6 +49,7 @@ export async function planTrip(
         activities: existingTrip.activities,
         budget: existingTrip.budget,
         itinerary: existingTrip.itinerary,
+        local_transport: existingTrip.local_transport,
         booking: existingTrip.booking,
       };
     } else {
@@ -89,6 +90,7 @@ export async function planTrip(
       activities: result.context.activities,
       budget: result.context.budget,
       itinerary: result.context.itinerary,
+      local_transport: result.context.local_transport,
       formattedPlan: result.context.formattedPlan,
     },
     { upsert: true, new: true }

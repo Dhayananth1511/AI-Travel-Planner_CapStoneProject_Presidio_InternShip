@@ -150,9 +150,10 @@ export async function runBudgetAgent(context: TripContext): Promise<BudgetBreakd
   const foodSelection = getFoodCost(activities, travelers, days);
 
   const attractionsCount = Array.isArray(activities?.attractions) ? activities.attractions.length : 0;
-  const feePerPerson = parseFirstNumber(activities?.entry_fees);
+  const feePerPersonParsed = parseFirstNumber(activities?.entry_fees);
+  const feePerPerson = feePerPersonParsed > 0 ? feePerPersonParsed : (attractionsCount > 0 ? 150 : 0);
   const activityVisits = Math.max(1, Math.min(attractionsCount || days, days));
-  const activityCost = feePerPerson > 0 ? feePerPerson * travelers * activityVisits : 0;
+  const activityCost = feePerPerson * travelers * activityVisits;
 
   // Calculate local transport cost: either use existing calculated value or estimate as ₹350 per traveler per day.
   let localTransportCost = 0;

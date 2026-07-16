@@ -169,6 +169,8 @@ export async function runLocalTransitAgent(
     });
   }
 
+  let totalActivitiesCost = 0;
+
   const updatedDays = itinerary.days.map((day: any) => {
     let dayTotalInr = 0;
 
@@ -182,6 +184,28 @@ export async function runLocalTransitAgent(
         loc.toLowerCase() === hotelName.toLowerCase();
 
       const data = loc && !isHotelLoc ? distanceCache[loc] : null;
+
+      const itemCost = Number(item.cost_inr) || 0;
+      dayTotalInr += itemCost;
+
+      const activityText = (item.activity || '').toLowerCase();
+      const isMealOrStay =
+        isHotelLoc ||
+        activityText.includes('lunch') ||
+        activityText.includes('dinner') ||
+        activityText.includes('breakfast') ||
+        activityText.includes('meal') ||
+        activityText.includes('rest ') ||
+        activityText.includes('hotel') ||
+        activityText.includes('check-in') ||
+        activityText.includes('checkout') ||
+        activityText.includes('check-out') ||
+        activityText.includes('check out') ||
+        activityText.includes('stay');
+
+      if (!isMealOrStay) {
+        totalActivitiesCost += itemCost;
+      }
 
       if (data) {
         const dist = data.distance_km as number;
@@ -264,7 +288,7 @@ export async function runLocalTransitAgent(
   const baseTransport = Number(currentBudget.transport) || 0;
   const baseAccom = Number(currentBudget.accommodation) || 0;
   const baseFood = Number(currentBudget.food) || 0;
-  const baseActivities = Number(currentBudget.activities) || 0;
+  const baseActivities = totalActivitiesCost;
 
   const newSubtotal = baseTransport + baseAccom + baseFood + baseActivities + cappedLocalTransportCost;
 
@@ -275,12 +299,17 @@ export async function runLocalTransitAgent(
 
   const updatedBudget: any = {
     ...currentBudget,
+    activities: totalActivitiesCost,
     local_transport: cappedLocalTransportCost,
     emergency_fund: newEmergencyFund,
     total_cost_inr: newTotalCost,
     remaining_budget_inr: userBudgetLimit - newTotalCost,
     is_feasible: isFeasible,
   };
+
+  if (updatedBudget.source_details?.activities) {
+    updatedBudget.source_details.activities.cost_inr = totalActivitiesCost;
+  }
 
   if (!isFeasible) {
     const safeIncrease = Math.ceil(newTotalCost * 1.15);

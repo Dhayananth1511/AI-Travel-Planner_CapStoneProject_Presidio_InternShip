@@ -22,7 +22,7 @@ function extractJsonObject(text: string): any {
 async function generateRecommendationFallback(destination: string, interests: string[], days: number) {
   const attractionCount = Math.max(8, Math.min(30, days * 4));
   const restaurantCount = Math.max(6, Math.min(20, days * 3));
-  const fallbackPrompt = getActivityFallbackPrompt(destination, attractionCount, restaurantCount);
+  const fallbackPrompt = getActivityFallbackPrompt(destination, attractionCount, restaurantCount, interests);
 
   const response = await withRetry(() => llm.invoke([
     new SystemMessage(fallbackPrompt),
@@ -121,7 +121,7 @@ export const activityTool = tool(
     // Filter, Supplement, Rate & Sort Attractions with LLM
     try {
       const attractionCount = Math.max(8, Math.min(30, days * 4));
-      const filteringPrompt = getActivityFilteringPrompt(destination, attractionCount);
+      const filteringPrompt = getActivityFilteringPrompt(destination, attractionCount, interests);
       const filterRes = await withRetry(() => llm.invoke([
         new SystemMessage(filteringPrompt),
         new HumanMessage(`Raw list of attractions to filter and supplement: ${JSON.stringify(data.attraction_options)}`)
