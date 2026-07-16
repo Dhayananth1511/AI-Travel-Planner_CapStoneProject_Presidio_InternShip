@@ -102,7 +102,8 @@ export const activityTool = tool(
 
     // Filter, Supplement, Rate & Sort Attractions with LLM
     try {
-      const filteringPrompt = getActivityFilteringPrompt(destination);
+      const attractionCount = Math.max(8, Math.min(30, days * 4));
+      const filteringPrompt = getActivityFilteringPrompt(destination, attractionCount);
       const filterRes = await withRetry(() => llm.invoke([
         new SystemMessage(filteringPrompt),
         new HumanMessage(`Raw list of attractions to filter and supplement: ${JSON.stringify(data.attraction_options)}`)

@@ -41,15 +41,15 @@ Analyze the suggested places in ${destination} for a ${days}-day trip matching t
 Briefly explain if these matches fit traveler preferences, and highlight 2-3 key landmark recommendations in 2-3 sentences. Keep it short.`;
 }
 
-export function getActivityFilteringPrompt(destination: string): string {
-  return `You are TripPlanner's Sightseeing & Activities Specialist. You are given a list of tourist attractions in or near ${destination} retrieved from a local directory.
-Your task is to:
-1. Filter this list to prioritize the most famous, popular, and scenic tourist/sightseeing spots in or very close to ${destination}.
-2. Filter out any accommodations (hotels, resorts, stays, B&B), municipal utilities/offices, transit hubs (bus stations, railway stops), or unremarkable local shops/facilities.
-3. Provide realistic ratings (1.0 to 5.0) and review counts (user_ratings_total) based on real-world popularity and fame of each attraction.
-4. Provide a short description (max 12 words) for each.
-5. If the directory list has fewer than 8 good tourist attractions, supplement the list with other famous sightseeing spots, historical landmarks, or monuments in ${destination} to always return at least 8-12 high-quality tourist choices.
-6. Sort the final list in descending order of rating/popularity.
+export function getActivityFilteringPrompt(destination: string, attractionCount: number): string {
+  return `You are TripPlanner's Sightseeing & Activities Specialist. You are given a list of tourist attractions in or near ${destination} retrieved from a directory API.
+Your task is to create a high-quality, curated, and MIXED list of exactly ${attractionCount} tourist attractions for a trip to ${destination}.
+
+Follow these strict rules:
+1. STRICT FILTERING (Tourist Places Only): Keep ONLY genuine sightseeing/tourist spots (famous landmarks, viewpoints, parks, historical structures, monuments, temples, museums, scenic spots). Strictly filter out and remove any municipal offices, administrative utilities, government buildings, transit hubs (bus stands, taxi ranks, train stations), local shops, or ordinary facilities.
+2. ALL MIXED: Create a blended/mixed list. Take the best genuine tourist attractions from the API features list, and MIX them with the most famous, must-visit tourist landmark recommendations for ${destination} that might be missing from the API. The final list should feel premium and comprehensive.
+3. RATING & POPULARITY SORT: Assign realistic ratings (1.0 to 5.0) and review counts (user_ratings_total) based on real-world fame. You must sort the final list in descending order from highest rating (most rated/popular) to lowest rating (least rated/popular).
+4. TARGET COUNT: You must return exactly ${attractionCount} attractions. If there are not enough genuine tourist spots in the API list, supplement them with famous sightseeing spots. If there are too many, prune them to keep only the ${attractionCount} highest-rated tourist places.
 
 Format your reply ONLY as a valid JSON object of this structure:
 {
@@ -57,12 +57,12 @@ Format your reply ONLY as a valid JSON object of this structure:
     {
       "name": "Attraction Name",
       "vicinity": "Address or area, ${destination}",
-      "rating": 4.8,
-      "user_ratings_total": 2450,
-      "description": "Short description here",
-      "place_id": "original_place_id",
+      "rating": 4.9,
+      "user_ratings_total": 45000,
+      "description": "Short description (max 12 words) explaining why this is a great tourist spot",
+      "place_id": "original_place_id_or_llm_recommendation_id",
       "types": ["tourism.attraction"],
-      "source_type": "geoapify_places" // preserve geoapify_places or set to llm_recommendation if you added/supplemented it
+      "source_type": "geoapify_places" // set to "geoapify_places" if it came from the API, or "llm_recommendation" if you added/supplemented it
     }
   ]
 }`;

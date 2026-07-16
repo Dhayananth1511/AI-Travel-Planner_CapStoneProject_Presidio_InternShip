@@ -569,21 +569,31 @@ export const selectTransport = async (req: Request, res: Response): Promise<void
     }
 
     const newBudget = isItineraryGeneratedNow ? contextObj.budget : await runBudgetAgent(contextObj);
-    
+
+    // When the itinerary was NOT freshly generated (i.e. an existing itinerary was kept),
+    // carry forward the capped local_transport cost that was set by the last LocalTransitAgent run.
+    // Do NOT re-add it to the subtotal — runBudgetAgent already computes a clean base subtotal
+    // without local_transport, and LocalTransitAgent is the authoritative source for that field.
     if (!isItineraryGeneratedNow) {
-      const existingLocalTransportCost = Number(trip.local_transport?.distances_from_hotel ? trip.budget?.local_transport : 0) || 0;
+      const existingLocalTransportCost = Number(trip.budget?.local_transport) || 0;
       if (existingLocalTransportCost > 0) {
-        newBudget.local_transport = existingLocalTransportCost;
-        const subtotal = (newBudget.transport || 0) + (newBudget.accommodation || 0) + (newBudget.food || 0) + (newBudget.activities || 0) + existingLocalTransportCost;
+        const travelers = trip.input?.travelers || 1;
+        const tripDayCount = trip.itinerary?.days?.length || 5;
+        const cap = 500 * travelers * tripDayCount;
+        const safeLocalCost = Math.min(existingLocalTransportCost, cap);
+
+        newBudget.local_transport = safeLocalCost;
+        const subtotal = (newBudget.transport || 0) + (newBudget.accommodation || 0) + (newBudget.food || 0) + (newBudget.activities || 0) + safeLocalCost;
         newBudget.emergency_fund = Math.round(subtotal * 0.1);
         newBudget.total_cost_inr = subtotal + newBudget.emergency_fund;
         newBudget.remaining_budget_inr = (trip.input.budget_inr || 30000) - newBudget.total_cost_inr;
         newBudget.is_feasible = newBudget.total_cost_inr <= (trip.input.budget_inr || 30000);
         if (!newBudget.is_feasible) {
+          const safeIncrease = Math.ceil(newBudget.total_cost_inr * 1.15);
           newBudget.alternatives = [
             `Choose a cheaper hotel tier (saves approx. ₹${Math.round((newBudget.accommodation || 0) * 0.4)})`,
-            `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round(((newBudget.food || 0) / Math.max(1, (trip.itinerary?.days?.length || 5))) * 1.5)})`,
-            `Increase limit to ₹${newBudget.total_cost_inr} for comfortable traveling accommodations`,
+            `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round(((newBudget.food || 0) / Math.max(1, tripDayCount)) * 1.5)})`,
+            `Increase limit to ₹${safeIncrease} for comfortable traveling accommodations`,
           ];
         }
       }

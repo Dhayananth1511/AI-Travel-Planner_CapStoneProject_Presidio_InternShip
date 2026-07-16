@@ -174,32 +174,47 @@ export async function runLocalTransitAgent(
       return { ...item, travel_cost_inr: 0 };
     });
 
-    updatedSchedule.forEach((item: any) => {
-      dayTotalInr += Number(item.cost_inr) || 0;
-    });
-
     return { ...day, schedule: updatedSchedule, daily_total_inr: dayTotalInr };
   });
 
   const updatedItinerary = { ...itinerary, days: updatedDays };
 
   // ── Recalculate budget including local transport ───────────────────────
+  // IMPORTANT: Always use the BASE budget fields (transport, accommodation, food, activities)
+  // WITHOUT any pre-existing local_transport value. This prevents the stale local_transport
+  // from being re-added every time the agent re-runs (e.g. on replan), which caused the
+  // ₹854,408 explosion seen in the screenshot.
   const currentBudget = context.budget || {};
-  const newSubtotal =
-    (Number(currentBudget.transport) || 0) +
-    (Number(currentBudget.accommodation) || 0) +
-    (Number(currentBudget.food) || 0) +
-    (Number(currentBudget.activities) || 0) +
-    totalLocalTransportCost;
+
+  // Hard cap local transport cost at a sensible maximum (₹500/person/day * travelers * days)
+  // to protect against Geoapify returning unrealistic distances (e.g. 500 km routes).
+  const travelers = context.input?.travelers || 1;
+  const tripDays = updatedDays.length || 1;
+  const maxReasonableLocalCost = 500 * travelers * tripDays;
+  const cappedLocalTransportCost = Math.min(totalLocalTransportCost, maxReasonableLocalCost);
+
+  if (totalLocalTransportCost > maxReasonableLocalCost) {
+    logger.warn(
+      `[LocalTransitAgent] Capping local transport cost from ₹${totalLocalTransportCost} to ₹${cappedLocalTransportCost} (max ₹500/person/day)`
+    );
+  }
+
+  // Use ONLY the four base cost categories — never add local_transport from currentBudget
+  const baseTransport = Number(currentBudget.transport) || 0;
+  const baseAccom = Number(currentBudget.accommodation) || 0;
+  const baseFood = Number(currentBudget.food) || 0;
+  const baseActivities = Number(currentBudget.activities) || 0;
+
+  const newSubtotal = baseTransport + baseAccom + baseFood + baseActivities + cappedLocalTransportCost;
 
   const newEmergencyFund = Math.round(newSubtotal * 0.1);
   const newTotalCost = newSubtotal + newEmergencyFund;
-  const userBudgetLimit = input.budget_inr || 30000;
+  const userBudgetLimit = context.input.budget_inr || 30000;
   const isFeasible = newTotalCost <= userBudgetLimit;
 
   const updatedBudget: any = {
     ...currentBudget,
-    local_transport: totalLocalTransportCost,
+    local_transport: cappedLocalTransportCost,
     emergency_fund: newEmergencyFund,
     total_cost_inr: newTotalCost,
     remaining_budget_inr: userBudgetLimit - newTotalCost,
@@ -209,8 +224,8 @@ export async function runLocalTransitAgent(
   if (!isFeasible) {
     const safeIncrease = Math.ceil(newTotalCost * 1.1);
     updatedBudget.alternatives = [
-      `Choose a cheaper hotel tier (saves approx. ₹${Math.round((Number(currentBudget.accommodation) || 0) * 0.4)})`,
-      `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round(((Number(currentBudget.food) || 0) / Math.max(1, updatedDays.length)) * 1.5)})`,
+      `Choose a cheaper hotel tier (saves approx. ₹${Math.round(baseAccom * 0.4)})`,
+      `Reduce duration of trip by 1 or 2 days (saves approx. ₹${Math.round((baseFood / Math.max(1, updatedDays.length)) * 1.5)})`,
       `Increase limit to ₹${safeIncrease} for comfortable traveling accommodations`,
     ];
   }
@@ -218,7 +233,7 @@ export async function runLocalTransitAgent(
   const local_transport = {
     distances_from_hotel: distancesFromHotelList,
     hotel_name: hotelName,
-    daily_budget_estimate: Math.round(totalLocalTransportCost / Math.max(1, updatedDays.length)),
+    daily_budget_estimate: Math.round(cappedLocalTransportCost / Math.max(1, updatedDays.length)),
     cab_estimates: [
       { mode: 'Cab / Taxi', rate_per_km: 15, base_fare: 80 },
       { mode: 'Auto Rickshaw', rate_per_km: 10, base_fare: 40 },
@@ -228,7 +243,7 @@ export async function runLocalTransitAgent(
 
   logger.info(
     `[LocalTransitAgent] Done. Hotel: "${hotelName}", ` +
-    `${distancesFromHotelList.length} spots, total commute cost: ₹${totalLocalTransportCost}`
+    `${distancesFromHotelList.length} spots, raw commute cost: ₹${totalLocalTransportCost}, capped at: ₹${cappedLocalTransportCost}`
   );
 
   return { itinerary: updatedItinerary, budget: updatedBudget, local_transport };

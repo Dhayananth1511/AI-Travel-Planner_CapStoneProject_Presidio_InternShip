@@ -88,7 +88,19 @@ export async function runReplanningAgent(
   ]));
 
   const toolCalls = response.tool_calls || [];
-  const selectedTool = toolCalls[0]?.name || 'replan_itinerary';
+  let selectedTool = toolCalls[0]?.name || 'replan_itinerary';
+
+  // Programmatic override logic: if the user explicitly mentions changing accommodation budget/tier/hotel selection,
+  // ensure we trigger replan_accommodation so the accommodation/hotels are actually re-filtered and selected
+  // under the new constraints, which in turn flows into budget and local transit recalculations.
+  const lowerReason = rejectionReason.toLowerCase();
+  const mentionsHotel = /(?:hotel|stay|night|accommodation|lodging|room|tier|mid-range|luxury|five star|5-star)/i.test(lowerReason);
+  const mentionsPriceOrBudgetOrLimit = /(?:budget|price|under|below|less|limit|cost|max|maximum|₹|\b\d+\b|range)/i.test(lowerReason);
+
+  if (mentionsHotel && mentionsPriceOrBudgetOrLimit) {
+    logger.info(`[replanningAgent] Programmatic override: Rejection mentions hotel and pricing constraint/tier. Forcing replan_accommodation.`);
+    selectedTool = 'replan_accommodation';
+  }
 
   logger.info('ReplanningAgent tool selected', { selectedTool, rejectionReason });
 
