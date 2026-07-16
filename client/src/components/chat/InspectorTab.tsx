@@ -125,7 +125,11 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
                 <code className={`text-[10.5px] font-bold px-2 py-0.5 rounded font-mono max-w-[55%] truncate ${
                   isDark ? 'bg-slate-800 text-indigo-400' : 'bg-indigo-100 text-indigo-800'
                 }`} title={context.booking?.refs?.calendar || bookingRefs?.calendar || '—'}>
-                  {context.booking?.refs?.calendar || bookingRefs?.calendar || 'Not synced'}
+                  {(() => {
+                    const cal = context.booking?.refs?.calendar || bookingRefs?.calendar;
+                    if (!cal || cal === 'No calendar synced') return 'Pending Sync';
+                    return cal;
+                  })()}
                 </code>
               </div>
             </div>

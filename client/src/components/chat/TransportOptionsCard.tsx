@@ -83,7 +83,7 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
       )}
 
       {Array.isArray(transport.options) && transport.options.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {transport.distance_km && (
             <div className={`p-2.5 rounded-lg border font-semibold flex items-center justify-between text-[10.5px] ${
               isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300 font-sans' : 'bg-white border-slate-200 text-slate-700'
@@ -94,6 +94,73 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
               </span>
             </div>
           )}
+
+          {/* Comparative Bar Chart Visualization */}
+          {(() => {
+            const options = transport.options || [];
+            const maxCost = Math.max(...options.map(o => o.cost_inr || 1));
+            const maxDuration = Math.max(...options.map(o => o.duration_hrs || 1));
+
+            return (
+              <div className={`p-3.5 rounded-xl border text-[11px] space-y-3 shadow-sm ${
+                isDark ? 'bg-slate-900/50 border-slate-850' : 'bg-white border-slate-205'
+              }`}>
+                <p className={`font-extrabold text-[10px] uppercase tracking-wider ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                  📊 Transport Comparison (Price & Duration)
+                </p>
+                <div className="space-y-3">
+                  {options.map((option, oIdx) => {
+                    const pricePercent = Math.max(12, Math.round(((option.cost_inr || 0) / maxCost) * 100));
+                    const durationPercent = Math.max(12, Math.round(((option.duration_hrs || 0) / maxDuration) * 100));
+                    const isSelected = transport.selected_option && 
+                      transport.selected_option.operator === option.operator && 
+                      transport.selected_option.mode === option.mode;
+                    const isCurrentlyActive = isSelected || (!transport.selected_option && oIdx === 0);
+
+                    return (
+                      <div key={oIdx} className={`space-y-1.5 p-2 rounded-lg transition-colors duration-250 ${
+                        isCurrentlyActive 
+                          ? (isDark ? 'bg-indigo-950/20 shadow-sm' : 'bg-indigo-50/50') 
+                          : ''
+                      }`}>
+                        <div className="flex justify-between items-center text-[10.5px] font-bold">
+                          <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
+                            {option.operator} ({option.mode})
+                          </span>
+                          <span className={isDark ? 'text-emerald-450 font-semibold' : 'text-emerald-705 font-semibold'}>
+                            ₹{option.cost_inr.toLocaleString()} • {option.duration_hrs}h
+                          </span>
+                        </div>
+                        
+                        {/* Price Bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="w-12 text-[8px] text-slate-400 font-bold uppercase tracking-widest text-right shrink-0">price</span>
+                          <div className="flex-1 h-2 bg-slate-205 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                              style={{ width: `${pricePercent}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Duration Bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="w-12 text-[8px] text-slate-400 font-bold uppercase tracking-widest text-right shrink-0">time</span>
+                          <div className="flex-1 h-2 bg-slate-205 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-indigo-500 rounded-full transition-all duration-500" 
+                              style={{ width: `${durationPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             ✈️ Transit Options & Comparisons
           </p>

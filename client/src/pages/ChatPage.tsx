@@ -334,7 +334,11 @@ export default function ChatPage() {
         ...prev,
         {
           role: 'assistant',
-          content: `🎉 Awesome! The trip has been successfully approved & confirmed.\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${data.bookingRefs?.hotel}\`\n* ✈️ **Transport:** \`${data.bookingRefs?.transport}\`\n* 📅 **Calendar integration:** Created Google Calendar event (\`${data.bookingRefs?.calendar}\`)`,
+          content: `🎉 Awesome! The trip has been successfully approved & confirmed.\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${data.bookingRefs?.hotel}\`\n* ✈️ **Transport:** \`${data.bookingRefs?.transport}\`\n* 📅 **Calendar integration:** ${
+            data.bookingRefs?.calendar === 'No calendar synced'
+              ? 'Calendar event will be created once you sync your Google Calendar'
+              : `Created Google Calendar event (\`${data.bookingRefs?.calendar}\`)`
+          }`,
         },
       ]);
       // Prefer the full trip document returned by the backend; fall back to a shallow merge
@@ -773,6 +777,7 @@ export default function ChatPage() {
                 activities={context.activities}
                 destination={context.input?.destination || ''}
                 isDark={isDark}
+                budget={context.budget}
               />
               {context.itinerary?.days && context.itinerary?.notes && (
                 <div className="pl-8 relative">

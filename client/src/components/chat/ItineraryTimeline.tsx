@@ -43,6 +43,7 @@ interface ItineraryTimelineProps {
   };
   destination: string;
   isDark: boolean;
+  budget?: any;
 }
 
 function formatTimeAndPeriod(timeStr: string): string {
@@ -75,6 +76,7 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
   activities,
   destination,
   isDark,
+  budget,
 }) => {
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({});
 
@@ -132,13 +134,56 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                     )}
                   </h4>
                 </div>
-                {dayItem.daily_total_inr > 0 && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded leading-none border transition-colors ${
-                    isDark ? 'bg-slate-900 border-slate-800 text-emerald-450' : 'bg-emerald-50 border-emerald-100/50 text-emerald-700'
-                  }`}>
-                    ₹{dayItem.daily_total_inr.toLocaleString()}
-                  </span>
-                )}
+                {(() => {
+                  const dayTravelTotal = dayItem.schedule?.reduce((acc, action) => acc + (action.travel_cost_inr || 0), 0) || 0;
+                  const dayEntryTotal = dayItem.schedule?.reduce((acc, action) => acc + (action.cost_inr || 0), 0) || 0;
+                  const totalDaysCount = itinerary.days?.length || 1;
+                  const dailyFoodTotal = budget?.food ? Math.round(Number(budget.food) / totalDaysCount) : 0;
+                  const finalDailyTotal = dayTravelTotal + dayEntryTotal + dailyFoodTotal;
+
+                  if (finalDailyTotal <= 0) return null;
+
+                  return (
+                    <div className="relative group/tooltip inline-flex items-center">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded leading-none border transition-colors cursor-help select-none ${
+                        isDark ? 'bg-slate-900 border-slate-800 text-emerald-450 hover:bg-slate-850 hover:border-slate-700' : 'bg-emerald-50 border-emerald-100/50 text-emerald-700 hover:bg-emerald-100'
+                      }`}>
+                        ₹{finalDailyTotal.toLocaleString()}
+                      </span>
+                      
+                      {/* Cost breakdown Tooltip */}
+                      <div className={`absolute bottom-full right-0 mb-2 w-48 p-2.5 rounded-lg border shadow-xl transition-all duration-200 origin-bottom-right scale-95 opacity-0 pointer-events-none group-hover/tooltip:scale-100 group-hover/tooltip:opacity-100 group-hover/tooltip:pointer-events-auto z-30 space-y-1.5 ${
+                        isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-205 text-slate-700'
+                      }`}>
+                        <p className="font-extrabold text-[9px] uppercase tracking-wider text-slate-500 border-b pb-1 mb-1.5">
+                          💵 cost breakdown
+                        </p>
+                        {dailyFoodTotal > 0 && (
+                          <div className="flex justify-between text-[10px]">
+                            <span>🍜 Food & Dine</span>
+                            <span className="font-bold">₹{dailyFoodTotal.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {dayEntryTotal > 0 && (
+                          <div className="flex justify-between text-[10px]">
+                            <span>🎟️ Entry Fees</span>
+                            <span className="font-bold">₹{dayEntryTotal.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {dayTravelTotal > 0 && (
+                          <div className="flex justify-between text-[10px]">
+                            <span>🛺 Transit & Commute</span>
+                            <span className="font-bold">₹{dayTravelTotal.toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="border-t pt-1.5 mt-1.5 flex justify-between text-[10px] font-extrabold text-emerald-500">
+                          <span>Total Day Cost</span>
+                          <span>₹{finalDailyTotal.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {isDayExpanded && (
