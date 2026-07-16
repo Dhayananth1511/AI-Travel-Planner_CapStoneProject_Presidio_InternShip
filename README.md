@@ -104,15 +104,22 @@ graph TD
     ActOut --> JoinTasks
     
     %% --- Sequential Agent Execution ---
-    subgraph SequentialTasks ["Stage 2: Sequential Planning"]
-        BudgetAgent["Budget Agent<br/>(Breakdown & Emergency Fund)"]:::agent
+    subgraph SequentialTasks ["Stage 2: Sequential Planning & Enrichment"]
+        BudgetAgent["Budget Agent<br/>(Base Cost Feasibility Check)"]:::agent
         ItinAgent["Itinerary Agent<br/>(Daily schedule details)"]:::agent
+        LocalTransitAgent["Local Transit Agent<br/>(Hotel-Attraction Commutes & Distances)"]:::agent
+        BudgetDoubleCheck{"Post-Transit Budget Check"}:::process
     end
     
     JoinTasks --> BudgetAgent
-    BudgetAgent --> ItinAgent
+    BudgetAgent -->|Feasible| ItinAgent
+    BudgetAgent -->|Infeasible| Clarify["Ask Clarifying Question<br/>(Prompt for missing fields)"]:::process
     
-    ItinAgent --> Summarize["Coordinator Agent<br/>(Synthesize markdown plan)"]:::agent
+    ItinAgent --> LocalTransitAgent
+    LocalTransitAgent --> BudgetDoubleCheck
+    
+    BudgetDoubleCheck -->|Feasible| Summarize["Coordinator Agent<br/>(Synthesize markdown plan)"]:::agent
+    BudgetDoubleCheck -->|Infeasible| Clarify
     
     Summarize --> SavePlanned["Save Trip to MongoDB Atlas<br/>(Status: Planned - Awaiting Payment)"]:::process
     
@@ -245,11 +252,13 @@ graph TD
     ActJoin --> JoinGather
     
     subgraph SequentialPhase ["Sequential Planning Phase"]
-        BudgetAgent["Budget Agent"]:::agent
+        BudgetAgent["Budget Agent<br/>(Precheck)"]:::agent
         CheckBudget{"Is budget impossible?"}:::process
         AltBudget["Propose Alternatives"]:::error
         
         ItinAgent["Itinerary Agent"]:::agent
+        LocalTransitAgent["Local Transit Agent"]:::agent
+        CheckBudgetPostLocal{"Is budget impossible after transit?"}:::process
     end
     
     JoinGather --> BudgetAgent
@@ -258,8 +267,12 @@ graph TD
     AltBudget --> Goal
     CheckBudget -->|No| ItinAgent
     
+    ItinAgent --> LocalTransitAgent
+    LocalTransitAgent --> CheckBudgetPostLocal
+    CheckBudgetPostLocal -->|Yes| AltBudget
+    CheckBudgetPostLocal -->|No| ConfidenceCheck{"Do parameters validate?"}:::process
+    
     %% Confidence Checks
-    ItinAgent --> ConfidenceCheck{"Do parameters validate?"}:::process
     ConfidenceCheck -->|No| ErrorHandle["Error Fallback<br/>(Load safe default schema)"]:::error
     ErrorHandle --> Comp["Coordinator Agent"]:::agent
     
@@ -272,10 +285,19 @@ graph TD
     SaveMem --> TravelerReview["User Review Plan"]:::process
     
     TravelerReview --> Approve{"Is plan approved?"}:::process
-    Approve -->|No| ReplanningAgent["Replanning Agent<br/>(Context Preservation)"]:::agent
-    ReplanningAgent --> PrefsKeep["Preserve Context<br/>(destination, weather, transport, prefs)"]:::process
-    PrefsKeep --> UpdateOnly["Update only requested changes"]:::process
-    UpdateOnly --> PlannerSvc2["Planner Service<br/>(Re-enters Supervisor Loop)"]:::process
+    Approve -->|No| ReplanningAgent["Replanning Agent<br/>(Supervisor LLM Router)"]:::agent
+    ReplanningAgent --> ReplanTools{"Replan Tool Selection"}:::process
+    ReplanTools -->|replan_accommodation| ClearAccom["Clear accommodation + itinerary + transit"]:::process
+    ReplanTools -->|replan_dates| ClearDates["Clear weather + transit + accom + itinerary"]:::process
+    ReplanTools -->|replan_activities| ClearActivities["Clear activities + itinerary + transit"]:::process
+    ReplanTools -->|replan_budget / itinerary / full| ClearOther["Clear targeted context slices"]:::process
+    
+    ClearAccom --> ReRunSupervisor["Re-enters Planner Supervisor Loop"]:::process
+    ClearDates --> ReRunSupervisor
+    ClearActivities --> ReRunSupervisor
+    ClearOther --> ReRunSupervisor
+    
+    ReRunSupervisor --> PlannerSvc2["Planner Service"]:::process
     PlannerSvc2 --> Planner
     Planner --> Coord
     
@@ -416,6 +438,7 @@ graph TD
             ActAgent["Activity Agent"]:::backend
             BudAgent["Budget Agent"]:::backend
             ItinAgent["Itinerary Agent"]:::backend
+            LocalTransitAgent["Local Transit Agent"]:::backend
             BookingAgent["Mocked Booking Agent"]:::backend
             ReplanningAgent["Replanning Agent"]:::backend
         end
@@ -440,7 +463,8 @@ graph TD
         ActAgent --> BudAgent
         
         BudAgent --> ItinAgent
-        ItinAgent --> Coord
+        ItinAgent --> LocalTransitAgent
+        LocalTransitAgent --> Coord
     end
 
     %% HITL Flow Gateway
@@ -494,6 +518,7 @@ graph TD
     
     Coord -->|Inference Query| LLM
     LLM -->|Standardized MCP Tool Requests| LCTools
+    LocalTransitAgent -->|Calculate Local Routes| MapsTool
     BookingAgent -->|OAuth Calendar Event| CalendarTool
     Coord -->|Store Completed Trip Profile| DB
     PlannerService -->|Read Variables| AWSSSM
@@ -563,11 +588,15 @@ sequenceDiagram
         Coord-->>Supervisor: Return populated TripContext
     end
 
-    critical Stage 2: Sequential Planning
+    critical Stage 2: Sequential Planning & Enrichment
         Supervisor->>Supervisor: runBudgetAgent(context)
-        Note over Supervisor: Cost checks & buffer checks (Feasible: True)
+        Note over Supervisor: Early base cost checks & feasibility validation (Feasible: True)
         Supervisor->>Supervisor: runItineraryAgent(context)
-        Note over Supervisor: Compiles chronological JSON schedule
+        Note over Supervisor: Compiles chronological day-by-day JSON schedule
+        Supervisor->>Supervisor: runLocalTransitAgent(itinerary, context)
+        Note over Supervisor: Maps hotel-to-tourist-spots commute telemetry using Maps MCP directions
+        Supervisor->>Supervisor: runBudgetAgent(context)
+        Note over Supervisor: Post-commute cost checks including local transport fees (Feasible: True)
         Supervisor->>Coord: synthesizeTripPlan(context)
         Coord-->>Supervisor: Returns formatted Markdown plan
     end
@@ -609,15 +638,21 @@ sequenceDiagram
   * **Cache MISS**: Triggers the **Model Context Protocol (MCP) server** (e.g., Maps MCP fetching Google Places attractions) using exponential backoff retry policies. Resolved payloads are saved in Redis memory for future queries.
 
 ### 5. Programmatic Budget Checks (`budgetAgent.ts`)
-* **Calibration**: The **Budget Agent** calculates:
-  $$\text{Cheapest Transport Option} + (\text{Cheapest Accommodation Option} \times \text{Nights})$$
+* **Calibration**: The **Budget Agent** calculates base estimates:
+  $$\text{Cheapest Transport Option} + (\text{Cheapest Accommodation Option} \times \text{Nights}) + \text{Activity Entry Fees} + \text{Dining Allowances}$$
 * **Divergence Logic**:
-  * **Infeasible**: If computed cost exceeds the traveler's budget cap, the workflow halts itinerary creation, appends money-saving alternatives (suggested budgets) to the chat, and sets status to `PLANNED` with `budgetFeasible: false`.
+  * **Infeasible**: If the computed cost exceeds the traveler's budget cap, the workflow halts itinerary creation, appends money-saving alternatives (like switching hotel tiers, reducing travelers, or limiting sightseeing) to the chat, and sets status to `NEEDS_INFO`.
   * **Feasible**: Continues.
+* **Non-LLM Live Recalculation**: Clicking a different hotel tier or selecting a skip-transport option in the UI triggers immediate cost readjustments. This recalculation executes purely programmatic formulas inside the backend controller, bypassing expensive LLM inference and updating the trip context in milliseconds.
 
 ### 6. Day-by-day Itinerary & Error Boundaries (`itineraryAgent.ts`)
 * **Itinerary Compilation**: The **Itinerary Agent** uses a large `llama3-70b` model to organize the attractions, hotels, and average weather conditions into a day-by-day schedule JSON.
-* **Reserves Catch-Block**: If JSON parsing fails or has date inconsistencies, it catches the error and auto-injects a safe placeholder structure to avoid crashing the server.
+* **Reserves Catch-Block**: If JSON parsing fails or has date inconsistencies, it catches the error and auto-injects a safe fallback placeholder structure to avoid crashing the server.
+
+### 6a. Local Transit Telemetry & Commute Enrichment (`localTransitAgent.ts`)
+* **Commute Routes Enrichment**: Executes sequentially after the Itinerary Agent. It parses all non-hotel locations in the day-by-day schedule and maps the physical commutes from the chosen hotel.
+* **Directions telemetry**: Queries the Maps MCP server endpoint `getTransitDirections` (backed by Geoapify APIs) mapping walking/auto/cab commute modes, travel distances, and duration.
+* **Budgets Integration**: Aggregates commute charges and entrance fees. It adds a 10% emergency buffer, then re-runs the programmatic feasibility check. If the local commutes push the total cost over the budget line, it returns user alternatives.
 
 ### 7. Synthesized Presentation & Persistent Store
 * **Compilation**: The **Coordinator Agent** converts the full context JSON into a beautiful, human-readable markdown trip summary.
@@ -625,8 +660,9 @@ sequenceDiagram
 * **Client Sync**: Emits the markdown layout and updated status to the React interface.
 
 ### 8. HITL (Human-in-the-Loop) Control Gate
-* **Approving (Happy Path)**: The user clicks "Approve". It triggers the mocked **Booking Agent** (status changes to `CONFIRMED`) and triggers the **Calendar MCP** to write events directly into the user's OAuth2 Google Calendar.
-* **Rejecting (Replanning)**: The user requests tweaks (e.g. *"change hotel to luxury"*). The **Replanning Agent** identifies which context keys to clear (accommodation), preserves other elements (weather, transit, activities), and restarts the flow from Stage 3.
+* **Approval Confirm Modal**: When the traveler clicks "Approve", they see a validation modal showing selected lodging and transport details for final confirmation. They can choose to proceed with booking or skip inter-city transport to arrange it themselves.
+* **Booking & Calendar Event Sync**: Approving changes the trip status to `CONFIRMED` (Paid), triggers the mocked **Booking Agent**, and calls the **Calendar MCP** to sync trip events directly into the user's OAuth2 Google Calendar.
+* **Dynamic Replanning Router**: If the traveler rejects the plan (e.g. *"cheaper hotel"*), the **Replanning Agent** (using a supervisor LLM router) calls a targeted replan tool (e.g. `replan_accommodation`, `replan_activities`, `replan_dates`). This tool clears *only* the affected slices of the shared `TripContext` (e.g., clearing lodging and transit settings but preserving weather and flight searches), preventing redundant API charges and optimizing processing speed when re-running the supervisor.
 
 ### 9. Multi-Tiered Accommodation Compare & Select (Interactive Recalculation)
 * **Tiered Categorization**: During Stage 1, the **Accommodation Agent** fetches up to 15 lodging choices and sorts them into **Budget**, **Mid-Range**, and **Luxury** tiers based on pricing, returning a structured category block rather than a single choice.
@@ -771,6 +807,7 @@ After parallel results are aggregated into the shared `TripContext`, the sequent
 |:---|:---|:---|:---|
 | **Budget Agent** | All cost estimates from Stage 1 + `traveler_budget` | Sums categories, adds 10% emergency buffer, validates against budget ceiling | `{ breakdown: {...}, total_cost, remaining_budget, is_feasible }` |
 | **Itinerary Agent** | `TripContext` with weather + activities + accommodation + budget | Generates day-by-day schedule respecting weather advisories, check-in times, spending caps | `{ itinerary: [...dailySchedule], notes }` |
+| **Local Transit Agent** | Chronological `itinerary`, `accommodation`, `transport` options, destination | Queries Maps MCP for hotel ➔ hotspots & exit hub direction telemetry. Integrates budget. | `{ itinerary: enrichedItinerary, budget: recalculatedBudget, local_transport }` |
 | **Coordinator Agent** | Full `TripContext` after all agents complete | Synthesizes into a human-readable Markdown trip plan using Groq LLM | Final formatted trip plan for HITL review |
 
 ### Stage 3 — Human-in-the-Loop & Booking (Sequential)
@@ -922,6 +959,8 @@ Real systems fail. This section defines what happens when each component in the 
 |:---|:---|:---|:---|
 | **Weather MCP** | OpenMeteo timeout / rate limit | Retry with exponential backoff (3 attempts), then return fallback forecast | Transparent — last known data used |
 | **Maps MCP** | Google Maps API quota exceeded | Return safe fallback message; flag in response | Minor delay, advisory shown |
+| **Maps MCP / Geoapify** | Geocoding failure / unrealistic local distance (>50km) | Fallback to smart deterministic distance hash based on location name pairing | Keeps layout consistent, prevents budget spikes, shows warning log |
+| **Local Transit Agent** | Transit estimation API timeout / failure | Fallback to smart local transit estimate | Minimal impact, keeps routing flow alive |
 | **Groq LLM** | Invalid JSON in LLM response | Re-prompt with stricter JSON-only system instruction (max 2 retries) | Slight latency |
 | **Groq LLM** | Rate limit / timeout | Wait 5s, retry once; if fails, return partial plan with advisory message | User sees partial plan |
 | **MongoDB Atlas** | Connection error / timeout | Return `503 Service Unavailable`; Winston error log emitted | Request fails gracefully with user message |
