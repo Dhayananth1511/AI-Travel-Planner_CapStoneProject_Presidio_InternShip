@@ -1407,7 +1407,7 @@ Navigate into the `server` directory and create `.env`:
 cd server
 ```
 
-Create a `.env` file with the following variables:
+Create a `.env` file in the `server` directory (you can copy the template from `server/.env.example`):
 ```env
 PORT=5000
 NODE_ENV=development
@@ -1416,6 +1416,13 @@ JWT_ACCESS_SECRET=your_jwt_access_token_secret_security_key
 JWT_REFRESH_SECRET=your_jwt_refresh_token_secret_security_key
 GROQ_API_KEY=gsk_your_groq_api_key_here
 CLIENT_URL=http://localhost:5173
+
+# Real Partner API Integration Keys
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+GEOAPIFY_API_KEY=your_geoapify_api_key
+HOTELBEDS_API_KEY=your_hotelbeds_api_key
+HOTELBEDS_API_SECRET=your_hotelbeds_api_secret
+AVIATIONSTACK_API_KEY=your_aviationstack_api_key
 
 # Google Calendar Integration (Optional)
 GOOGLE_CALENDAR_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
@@ -1439,7 +1446,7 @@ Open a new terminal window, navigate to the `client` directory, and create `.env
 cd ../client
 ```
 
-Create a `.env` file containing the VITE endpoint address:
+Create a `.env` file (you can copy the template from `client/.env.example`):
 ```env
 VITE_API_URL=http://localhost:5000/api
 ```
