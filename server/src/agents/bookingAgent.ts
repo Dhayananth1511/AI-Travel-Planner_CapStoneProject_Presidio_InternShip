@@ -30,13 +30,26 @@ export async function runBookingAgent(
   const transportMode = selectedTransportOption?.mode || 'Train';
   const transportOperator = selectedTransportOption?.operator || 'Indian Railways';
 
+  const isHotelSkipped =
+    context.accommodation?.selected_category === 'skipped' ||
+    selectedHotelName === 'Self Arranged';
+
+  const isTransportSkipped =
+    transportMode === 'Self Arranged' ||
+    transportMode === 'skipped' ||
+    transportOperator === 'Self Arranged';
+
   // Generate realistic confirmation reference codes based on selection
   const cleanHotel = String(selectedHotelName).replace(/[^A-Za-z0-9]/g, '');
-  const hotelRef = `HB-HTL-${(cleanHotel || 'HTL').substring(0, 4).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
+  const hotelRef = isHotelSkipped
+    ? 'N/A (Self Arranged)'
+    : `HB-HTL-${(cleanHotel || 'HTL').substring(0, 4).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
   const cleanMode = String(transportMode).replace(/[^A-Za-z0-9]/g, '');
   const cleanOperator = String(transportOperator).replace(/[^A-Za-z0-9]/g, '');
-  const transportRef = `PNR-${(cleanMode || 'TRN').substring(0, 3).toUpperCase()}-${(cleanOperator || 'OPR').substring(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
+  const transportRef = isTransportSkipped
+    ? 'N/A (Self Arranged)'
+    : `PNR-${(cleanMode || 'TRN').substring(0, 3).toUpperCase()}-${(cleanOperator || 'OPR').substring(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
   return {
     bookingRefs: {
