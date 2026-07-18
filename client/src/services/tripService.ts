@@ -11,7 +11,7 @@ export const tripService = {
     return res.data;
   },
 
-  async planTrip(payload: { message: string; tripId?: string }) {
+  async planTrip(payload: { message: string; tripId?: string; confirmCancel?: boolean }) {
     const res = await api.post('/trips/plan', payload);
     return res.data;
   },

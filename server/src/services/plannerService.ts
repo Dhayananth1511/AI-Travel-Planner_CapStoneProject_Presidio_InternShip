@@ -14,7 +14,8 @@ export async function planTrip(
   userMessage: string,
   userId: string,
   existingTripId?: string,
-  requestId?: string
+  requestId?: string,
+  confirmCancel?: boolean
 ): Promise<PlannerServiceResult> {
   logger.info('Planner Service: Starting trip planning', { userId, requestId });
 
@@ -55,7 +56,7 @@ export async function planTrip(
   context.conversationHistory.push({ role: 'user', content: userMessage });
 
   // --- Delegate to Planner Swarm Supervisor ---
-  const result = await runPlannerAgent(userMessage, context, longTermMemory);
+  const result = await runPlannerAgent(userMessage, context, longTermMemory, confirmCancel);
 
   // Trim conversation history to the most recent 50 turns to prevent MongoDB document bloat.
   // The LLM already uses only the last 4 messages for context (in plannerAgent), so full

@@ -5,14 +5,15 @@ import * as tripService from '../services/tripService';
 // POST /api/trips/plan — User sends a chat message to plan a trip
 export const createOrUpdateTrip = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { message, tripId } = req.body;
+    const { message, tripId, confirmCancel } = req.body;
     const userId = req.user!.userId;
 
     const result = await tripService.createOrUpdateUserTrip(
       message,
       userId,
       tripId as string | undefined,
-      (req as any).requestId
+      (req as any).requestId,
+      confirmCancel as boolean | undefined
     );
 
     res.json(result);

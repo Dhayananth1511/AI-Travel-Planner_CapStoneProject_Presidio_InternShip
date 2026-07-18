@@ -66,7 +66,7 @@ export interface TripContext {
 
 export interface PlannerAgentResult {
   context: TripContext;
-  status: 'NEEDS_INFO' | 'PLANNED' | 'ERROR';
+  status: 'NEEDS_INFO' | 'PLANNED' | 'ERROR' | 'NEEDS_CANCEL_CONFIRM';
   clarifyingQuestion?: string;
   plan?: string;
   budgetFeasible?: boolean;
@@ -74,7 +74,7 @@ export interface PlannerAgentResult {
 }
 
 export interface PlannerServiceResult {
-  status: 'NEEDS_INFO' | 'PLANNED' | 'ERROR';
+  status: 'NEEDS_INFO' | 'PLANNED' | 'ERROR' | 'NEEDS_CANCEL_CONFIRM';
   clarifyingQuestion?: string;
   tripId?: string;
   plan?: string;

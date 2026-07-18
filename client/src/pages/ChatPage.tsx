@@ -82,6 +82,7 @@ export default function ChatPage() {
   const [showAbortConfirm, setShowAbortConfirm] = useState(false);
   const [showConfirmBookingModal, setShowConfirmBookingModal] = useState(false);
   const [bookingRefs, setBookingRefs] = useState<{ hotel?: string; transport?: string; calendar?: string } | null>(null);
+  const [isCancelPending, setIsCancelPending] = useState(false);
   
   const getChosenHotelName = () => {
     if (context?.accommodation?.selected_category === 'skipped' || context?.accommodation?.selected_hotel?.name === 'Self Arranged') {
@@ -240,6 +241,15 @@ export default function ChatPage() {
             if (data.context.status === 'PLANNED') {
               setActiveTab('itinerary');
             }
+          }
+
+          if (data.status === 'NEEDS_CANCEL_CONFIRM') {
+            if (data.context?.status === 'CANCELLED') {
+              setShowDiscardConfirm(true);
+            } else {
+              setShowAbortConfirm(true);
+            }
+            return;
           }
 
           if (data.status === 'NEEDS_INFO' && data.clarifyingQuestion) {
@@ -431,8 +441,12 @@ export default function ChatPage() {
       setMessage('');
       setSelectedInterests([]);
       setShowInterestPicker(false);
-      // Show a lightweight confirmation before opening the full discard dialog
-      setShowAbortConfirm(true);
+      // If already cancelled, skip the abort warning and directly show discard/delete option
+      if (context?.status === 'CANCELLED') {
+        setShowDiscardConfirm(true);
+      } else {
+        setShowAbortConfirm(true);
+      }
       return;
     }
 
@@ -1168,9 +1182,6 @@ export default function ChatPage() {
               <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {context?.input?.destination || 'this destination'}
               </span>?
-              <span className="block mt-2 text-[11px]">
-                This will open discard options where you can soft-cancel or permanently delete the plan.
-              </span>
             </p>
             <div className="flex gap-2 justify-end pt-1">
               <button
@@ -1205,18 +1216,30 @@ export default function ChatPage() {
                 <Trash2 className="h-5 w-5 text-red-500" />
               </div>
               <div>
-                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Discard Trip Plan Options</h3>
-                <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Choose how you want to discard this plan.</p>
+                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {context?.status === 'CANCELLED' ? 'Delete Permanently?' : 'Discard Trip Plan Options'}
+                </h3>
+                <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {context?.status === 'CANCELLED' ? 'This trip is already cancelled.' : 'Choose how you want to discard this plan.'}
+                </p>
               </div>
             </div>
             <p className={`text-xs leading-normal space-y-2 ${isDark ? 'text-slate-350' : 'text-slate-600'}`}>
-              What would you like to do with your trip plan to <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{context?.input?.destination || 'this destination'}</span>?
-              <span className="block mt-2">
-                • <strong>Cancel Plan (Soft)</strong>: Stops planning, sets status to Cancelled, and saves it in your Cancelled tab.
-              </span>
-              <span className="block mt-1">
-                • <strong>Delete Permanently</strong>: Completely erases the trip and chat record from the database.
-              </span>
+              {context?.status === 'CANCELLED' ? (
+                <span>
+                  Would you like to permanently delete your cancelled trip to <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{context?.input?.destination || 'this destination'}</span>? This will wipe it completely from your history.
+                </span>
+              ) : (
+                <>
+                  What would you like to do with your trip plan to <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{context?.input?.destination || 'this destination'}</span>?
+                  <span className="block mt-2">
+                    • <strong>Cancel Plan (Soft)</strong>: Stops planning, sets status to Cancelled, and saves it in your Cancelled tab.
+                  </span>
+                  <span className="block mt-1">
+                    • <strong>Delete Permanently</strong>: Completely erases the trip and chat record from the database.
+                  </span>
+                </>
+              )}
             </p>
             <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
               <button
@@ -1225,24 +1248,56 @@ export default function ChatPage() {
                   isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
-                Keep Planning
+                {context?.status === 'CANCELLED' ? 'Close' : 'Keep Planning'}
               </button>
+              {context?.status !== 'CANCELLED' && (
+                <button
+                  disabled={isCancelPending}
+                  onClick={async () => {
+                    setIsCancelPending(true);
+                    setShowDiscardConfirm(false);
+                    // Show the user's intent in the chat thread immediately
+                    setMessages((prev) => [...prev, { role: 'user', content: 'Cancel the trip planning session.' }]);
+                    try {
+                      // 1. Send cancel message to LLM so it gives a farewell reply
+                      await new Promise<void>((resolve, reject) => {
+                        planTripMutation.mutate(
+                          { message: 'cancel the trip', tripId, confirmCancel: true },
+                          {
+                            onSuccess: (data) => {
+                              // Append LLM farewell message to chat
+                              if (data.clarifyingQuestion) {
+                                setMessages((prev) => [...prev, { role: 'assistant', content: data.clarifyingQuestion }]);
+                              } else if (data.plan) {
+                                setMessages((prev) => [...prev, { role: 'assistant', content: data.plan }]);
+                              }
+                              if (data.context) setContext(data.context);
+                              resolve();
+                            },
+                            onError: reject,
+                          }
+                        );
+                      });
+                      // 2. Small delay so user sees the farewell message flash in chat
+                      await new Promise((r) => setTimeout(r, 1200));
+                      // 3. LLM already marked the trip CANCELLED in DB — just navigate
+                      toast.success('Trip planning cancelled.');
+                      navigate('/dashboard');
+                    } catch (err: any) {
+                      toast.error('Failed to cancel trip: ' + (err.response?.data?.message || err.message));
+                    } finally {
+                      setIsCancelPending(false);
+                      setShowDiscardConfirm(false);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white sm:order-2 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {isCancelPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {isCancelPending ? 'Cancelling...' : 'Cancel Plan (Soft)'}
+                </button>
+              )}
               <button
-                onClick={async () => {
-                  setShowDiscardConfirm(false);
-                  try {
-                    await tripService.cancelTrip(context.sessionId);
-                    toast.success('Trip soft-cancelled successfully.');
-                    navigate('/dashboard');
-                  } catch (err: any) {
-                    toast.error('Failed to cancel trip: ' + (err.response?.data?.message || err.message));
-                  }
-                }}
-                className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white sm:order-2 transition active:scale-95 cursor-pointer"
-              >
-                Cancel Plan (Soft)
-              </button>
-              <button
+                disabled={isCancelPending}
                 onClick={async () => {
                   setShowDiscardConfirm(false);
                   try {
@@ -1253,7 +1308,7 @@ export default function ChatPage() {
                     toast.error('Failed to delete trip: ' + (err.response?.data?.message || err.message));
                   }
                 }}
-                className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white sm:order-3 transition active:scale-95 cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white sm:order-3 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Delete Permanently
               </button>

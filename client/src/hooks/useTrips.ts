@@ -46,7 +46,7 @@ export function usePlanTripMutation() {
   const [activeStep, setActiveStep] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: async (payload: { message: string; tripId?: string }) => {
+    mutationFn: async (payload: { message: string; tripId?: string; confirmCancel?: boolean }) => {
       const steps = [
         'Supervisor Routing & Slot Extraction...',
         'Running Programmatic Context Validations...',

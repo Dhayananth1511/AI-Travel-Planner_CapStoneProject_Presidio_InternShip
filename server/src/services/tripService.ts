@@ -13,7 +13,13 @@ import { createCalendarEvent } from '../mcp-servers/calendarMCP';
 import { extractExplicitReplanInput } from '../utils/tripHelpers';
 import fs from 'fs';
 
-export const createOrUpdateUserTrip = async (message: string, userId: string, tripId?: string, requestId?: string) => {
+export const createOrUpdateUserTrip = async (
+  message: string,
+  userId: string,
+  tripId?: string,
+  requestId?: string,
+  confirmCancel?: boolean
+) => {
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     const err = new Error('Message cannot be empty.');
     (err as any).statusCode = 400;
@@ -42,7 +48,7 @@ export const createOrUpdateUserTrip = async (message: string, userId: string, tr
   }
 
   try {
-    return await planTrip(message.trim(), userId, tripId, requestId);
+    return await planTrip(message.trim(), userId, tripId, requestId, confirmCancel);
   } catch (error: any) {
     try {
       fs.appendFileSync(
