@@ -51,6 +51,30 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
 };
 
 /**
+ * Optional Authentication Guard: extracts user details if header is matched but doesn't block.
+ */
+export const optionalAuthenticate = (req: Request, res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const secret = process.env.JWT_ACCESS_SECRET!;
+      const decoded = jwt.verify(token, secret) as JwtPayload;
+
+      req.user = {
+        userId: decoded.userId,
+        role: decoded.role,
+      };
+    } catch (error: any) {
+      // Squelch validation error and proceed as guest anonymous
+    }
+  }
+
+  next();
+};
+
+/**
  * Authorization Guard: Restricts critical routes to Admin roles only.
  */
 export const authorizeAdmin = (req: Request, res: Response, next: NextFunction): void => {

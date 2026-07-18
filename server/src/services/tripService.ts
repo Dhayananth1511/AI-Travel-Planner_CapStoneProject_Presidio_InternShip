@@ -2,7 +2,7 @@ import Trip from '../models/Trip';
 import User from '../models/User';
 import logger from '../utils/logger';
 import { planTrip } from './plannerService';
-import { runBookingAgent } from '../agents/bookingAgent';
+import { runBookingAgent, createTripPaymentOrder } from '../agents/bookingAgent';
 import { runReplanningAgent } from '../agents/replanningAgent';
 import { runBudgetAgent } from '../agents/budgetAgent';
 import { runLocalTransitAgent } from '../agents/localTransitAgent';
@@ -10,6 +10,7 @@ import { runItineraryAgent } from '../agents/itineraryAgent';
 import { synthesizeTripPlan } from '../agents/coordinatorAgent';
 import { isMessageSafe } from '../utils/inputSanitizer';
 import { createCalendarEvent } from '../mcp-servers/calendarMCP';
+import { verifyRazorpayPayment } from '../mcp-servers/razorpayMCP';
 import { extractExplicitReplanInput } from '../utils/tripHelpers';
 import fs from 'fs';
 
@@ -128,6 +129,19 @@ export const approveUserTripItinerary = async (tripId: string, userId: string) =
   // Update trip to CONFIRMED status in MongoDB
   trip.status = 'CONFIRMED';
   trip.booking = { refs: booking.bookingRefs, confirmed_at: new Date() };
+
+  // Append confirmation message to conversationHistory so it persists on reload
+  const refs = booking.bookingRefs;
+  const confirmMsg = `🎉 Awesome! Your trip has been confirmed!\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${refs?.hotel || '—'}\`\n* ✈️ **Transport:** \`${refs?.transport || '—'}\`\n* 📅 **Calendar:** ${
+    refs?.calendar && refs?.calendar !== 'No calendar synced'
+      ? `Event created`
+      : 'Syncing now...'
+  }`;
+  if (!trip.conversationHistory) {
+    trip.conversationHistory = [];
+  }
+  trip.conversationHistory.push({ role: 'assistant', content: confirmMsg });
+
   await trip.save();
 
   // Re-fetch the fully saved document
@@ -686,4 +700,111 @@ export const syncTripCalendar = async (tripId: string, userId: string) => {
     logger.error('Google Calendar event creation failed during manual sync', calendarErr);
     throw calendarErr;
   }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RAZORPAY PAYMENT INTEGRATION (uses razorpayMCP)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Step 1: Create a Razorpay order for the trip (called before checkout opens)
+export const createTripRazorpayOrder = async (tripId: string, userId: string) => {
+  const trip = await Trip.findOne({ sessionId: tripId, userId });
+  if (!trip) {
+    const err = new Error('Trip not found');
+    (err as any).statusCode = 404;
+    throw err;
+  }
+
+  if (trip.status !== 'PLANNED') {
+    const err = new Error('Only PLANNED trips can be paid for.');
+    (err as any).statusCode = 400;
+    throw err;
+  }
+
+  const context = trip.toObject() as any;
+  const result = await createTripPaymentOrder(context, tripId);
+
+  return result;
+};
+
+// Step 2: Verify payment signature and approve the trip (replaces the normal approveTrip flow when paying via Razorpay)
+export const verifyPaymentAndApproveTrip = async (
+  tripId: string,
+  userId: string,
+  paymentData: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }
+) => {
+  // 1. Verify HMAC signature server-side (prevents tampered callbacks)
+  const verification = verifyRazorpayPayment(paymentData);
+  if (!verification.valid) {
+    const err = new Error('Payment signature verification failed. Payment may be invalid or tampered.');
+    (err as any).statusCode = 400;
+    throw err;
+  }
+
+  // 2. Fetch the trip and run normal approval flow (with payment ID injected)
+  const trip = await Trip.findOne({ sessionId: tripId, userId });
+  if (!trip) {
+    const err = new Error('Trip not found');
+    (err as any).statusCode = 404;
+    throw err;
+  }
+
+  if (trip.status !== 'PLANNED') {
+    const err = new Error('This trip is currently in draft status and cannot be approved.');
+    (err as any).statusCode = 400;
+    throw err;
+  }
+
+  const user = await User.findById(userId);
+  const context = trip.toObject() as any;
+
+  // Ensure itinerary exists
+  if (!trip.itinerary || !trip.itinerary.days || trip.itinerary.days.length === 0) {
+    logger.info('Itinerary is missing/empty during Razorpay-verified trip approval; generating now.');
+    try {
+      const generatedItinerary = await runItineraryAgent(context);
+      const transitResult = await runLocalTransitAgent(generatedItinerary, context);
+      trip.itinerary = transitResult.itinerary;
+      trip.budget = transitResult.budget;
+      trip.local_transport = transitResult.local_transport;
+      context.itinerary = transitResult.itinerary;
+      context.budget = transitResult.budget;
+      context.local_transport = transitResult.local_transport;
+      const newFormattedPlan = await synthesizeTripPlan(context);
+      trip.formattedPlan = newFormattedPlan;
+    } catch (err: any) {
+      logger.error('Failed to generate itinerary during Razorpay-verified trip approval', err);
+    }
+  }
+
+  // 3. Run booking agent — pass Razorpay payment ID so it appears in booking refs
+  const booking = await runBookingAgent(context, user?.email || '', paymentData.razorpay_payment_id);
+
+  // 4. Update trip to CONFIRMED status
+  trip.status = 'CONFIRMED';
+  trip.booking = { refs: booking.bookingRefs, confirmed_at: new Date() };
+
+  // Append payment-verified confirmation message to conversationHistory so it persists on reload
+  const rrefs = booking.bookingRefs;
+  const rzpPaymentId = paymentData.razorpay_payment_id;
+  const rzpConfirmMsg = `🎉 Awesome! Your trip has been confirmed!\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${rrefs?.hotel || '—'}\`\n* ✈️ **Transport:** \`${rrefs?.transport || '—'}\`\n* 💳 **Razorpay Payment:** \`${rzpPaymentId}\`\n* 📅 **Calendar:** ${
+    rrefs?.calendar && rrefs?.calendar !== 'No calendar synced'
+      ? `Event created`
+      : 'Syncing now...'
+  }`;
+  if (!trip.conversationHistory) {
+    trip.conversationHistory = [];
+  }
+  trip.conversationHistory.push({ role: 'assistant', content: rzpConfirmMsg });
+
+  await trip.save();
+
+  const confirmedTrip = await Trip.findOne({ sessionId: tripId, userId });
+  logger.info(`[razorpay] Trip ${tripId} confirmed after verified payment ${paymentData.razorpay_payment_id}`);
+
+  return { bookingRefs: booking.bookingRefs, status: 'CONFIRMED', trip: confirmedTrip };
 };

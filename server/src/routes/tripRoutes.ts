@@ -3,7 +3,8 @@ import { authenticate } from '../middleware/auth';
 import {
   createOrUpdateTrip, approveTrip, rejectTrip,
   getUserTrips, getTripById, cancelTrip, deleteTrip, selectHotel,
-  getPlacePhoto, selectTransport, syncCalendar
+  getPlacePhoto, selectTransport, syncCalendar,
+  createRazorpayOrder, verifyAndApproveTrip
 } from '../controllers/tripController';
 
 const router = Router();
@@ -25,4 +26,9 @@ router.post('/:tripId/sync-calendar', syncCalendar);
 router.post('/:tripId/cancel', cancelTrip);
 router.delete('/:tripId', deleteTrip);
 
+// Razorpay MCP — payment gateway routes
+router.post('/:tripId/razorpay-order', createRazorpayOrder);
+router.post('/:tripId/verify-payment', verifyAndApproveTrip);
+
 export default router;
+

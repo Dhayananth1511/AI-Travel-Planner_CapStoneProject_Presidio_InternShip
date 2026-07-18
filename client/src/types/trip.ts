@@ -43,6 +43,15 @@ export interface TripItem {
     emergency_fund?: number;
   };
   formattedPlan?: string;
+  booking?: {
+    refs?: {
+      hotel?: string;
+      transport?: string;
+      calendar?: string;
+      payment?: string;
+    };
+    confirmed_at?: string | null;
+  };
 }
 
 export interface Attraction {

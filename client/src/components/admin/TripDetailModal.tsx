@@ -94,6 +94,43 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
               </div>
             </div>
 
+            {/* Booking & Verification references */}
+            {selectedTrip.status === 'CONFIRMED' && selectedTrip.booking && (
+              <div className={`p-4 border rounded-xl space-y-3 transition-colors ${
+                isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-indigo-400' : 'text-indigo-650'}`}>
+                  Booking References
+                </h3>
+                <div className={`space-y-2 text-xs ${isDark ? 'text-slate-350' : 'text-slate-605'}`}>
+                  <div>
+                    <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-550' : 'text-slate-400'}`}>🏨 Hotel Reference</span>
+                    <code className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10.5px] ${isDark ? 'bg-slate-800 text-emerald-400' : 'bg-emerald-100 text-emerald-800'}`}>{selectedTrip.booking.refs?.hotel || '—'}</code>
+                  </div>
+                  <div>
+                    <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-555' : 'text-slate-400'}`}>✈️ Transport Reference</span>
+                    <code className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10.5px] ${isDark ? 'bg-slate-800 text-sky-400' : 'bg-sky-100 text-sky-800'}`}>{selectedTrip.booking.refs?.transport || '—'}</code>
+                  </div>
+                  <div>
+                    <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-555' : 'text-slate-400'}`}>📅 Calendar Event ID</span>
+                    <div className="font-mono text-slate-400 truncate max-w-full text-[10.5px]" title={selectedTrip.booking.refs?.calendar}>{selectedTrip.booking.refs?.calendar || '—'}</div>
+                  </div>
+                  {selectedTrip.booking.refs?.payment && selectedTrip.booking.refs?.payment !== 'SELF_BOOKED' && (
+                    <div>
+                      <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-555' : 'text-slate-400'}`}>💳 Payment ID</span>
+                      <code className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10.5px] ${isDark ? 'bg-slate-800 text-violet-400' : 'bg-violet-100 text-violet-800'}`}>{selectedTrip.booking.refs?.payment.replace(/^RZP-/, '')}</code>
+                    </div>
+                  )}
+                  {selectedTrip.booking.confirmed_at && (
+                    <div>
+                      <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-555' : 'text-slate-400'}`}>Verified At</span>
+                      <span className="font-semibold text-slate-400">{new Date(selectedTrip.booking.confirmed_at).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Budget assessment */}
             {selectedTrip.budget && (
               <div className={`p-4 border rounded-xl space-y-3 transition-colors ${

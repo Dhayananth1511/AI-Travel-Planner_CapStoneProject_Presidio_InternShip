@@ -35,6 +35,7 @@ import {
 import { ItineraryTimeline } from '../components/chat/ItineraryTimeline';
 import { InspectorTab } from '../components/chat/InspectorTab';
 import { downloadItineraryPDF } from '../utils/pdfHelper';
+import { RazorpayModal } from '../components/chat/RazorpayModal';
 
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -84,26 +85,6 @@ export default function ChatPage() {
   const [bookingRefs, setBookingRefs] = useState<{ hotel?: string; transport?: string; calendar?: string } | null>(null);
   const [isCancelPending, setIsCancelPending] = useState(false);
   
-  const getChosenHotelName = () => {
-    if (context?.accommodation?.selected_category === 'skipped' || context?.accommodation?.selected_hotel?.name === 'Self Arranged') {
-      return 'Self Arranged / Skipped';
-    }
-    return context?.accommodation?.selected_hotel?.name || context?.accommodation?.recommended || 'Self Arranged';
-  };
-
-  const getChosenTransportName = () => {
-    if (context?.transport?.selected_option?.operator === 'Self Arranged') {
-      return 'Self Arranged (skipped)';
-    }
-    if (context?.transport?.selected_option) {
-      return `${context.transport.selected_option.operator} (${context.transport.selected_option.mode})`;
-    }
-    if (context?.transport?.options?.[0]) {
-      return `${context.transport.options[0].operator} (${context.transport.options[0].mode})`;
-    }
-    return 'Self Arranged';
-  };
-
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch existing trip on mount if tripId query param is present
@@ -330,33 +311,55 @@ export default function ChatPage() {
     );
   };
 
+  // Shared handler that runs after EITHER self-book OR Razorpay payment approval
+  const handleBookingSuccess = (data: any, paymentRefs?: any) => {
+    const refs = paymentRefs || data.bookingRefs;
+    toast.success('Trip confirmed! Booking references generated. 🎉');
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: `🎉 Awesome! Your trip has been confirmed!\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${refs?.hotel}\`\n* ✈️ **Transport:** \`${refs?.transport}\`${
+          refs?.payment && refs?.payment !== 'SELF_BOOKED'
+            ? `\n* 💳 **Razorpay Payment:** \`${refs?.razorpay_payment_id || refs?.payment}\``
+            : ''
+        }\n* 📅 **Calendar:** ${
+          refs?.calendar && refs?.calendar !== 'No calendar synced'
+            ? `Event created`
+            : 'Syncing now...'
+        }`,
+      },
+    ]);
+    if (data.trip) {
+      setContext(data.trip);
+    } else if (context) {
+      setContext({ ...context, status: 'CONFIRMED', booking: { refs, confirmed_at: new Date().toISOString() } });
+    }
+    if (refs) {
+      setBookingRefs(refs);
+    }
+    setActiveTab('inspector');
+
+    // Auto-sync Google Calendar immediately after confirmation
+    if (tripId) {
+      setTimeout(async () => {
+        try {
+          const syncRes = await tripService.syncCalendar(tripId!);
+          if (syncRes.success && syncRes.calendarEventId) {
+            toast.success('📅 Trip synced to Google Calendar!', { id: 'auto-cal' });
+            setBookingRefs((prev) => prev ? { ...prev, calendar: syncRes.calendarEventId } : { calendar: syncRes.calendarEventId });
+            setContext((prev: any) => prev ? { ...prev, booking: { ...prev.booking, refs: { ...prev.booking?.refs, calendar: syncRes.calendarEventId } } } : prev);
+          }
+        } catch { /* silently skip if Google Calendar not linked */ }
+      }, 800);
+    }
+  };
+
   const approveMutation = {
     ...rawApproveMutation,
     mutate: () => {
       rawApproveMutation.mutate(undefined, {
-        onSuccess: (data) => {
-          toast.success('Trip confirmed! Booking references generated. 🎉');
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: `🎉 Awesome! The trip has been successfully approved & confirmed.\n\n🔑 **Booking References:**\n* 🏨 **Hotel:** \`${data.bookingRefs?.hotel}\`\n* ✈️ **Transport:** \`${data.bookingRefs?.transport}\`\n* 📅 **Calendar integration:** ${
-                data.bookingRefs?.calendar === 'No calendar synced'
-                  ? 'Calendar event will be created once you sync your Google Calendar'
-                  : `Created Google Calendar event (\`${data.bookingRefs?.calendar}\`)`
-              }`,
-            },
-          ]);
-          if (data.trip) {
-            setContext(data.trip);
-          } else if (context) {
-            setContext({ ...context, status: 'CONFIRMED', booking: { refs: data.bookingRefs, confirmed_at: new Date().toISOString() } });
-          }
-          if (data.bookingRefs) {
-            setBookingRefs(data.bookingRefs);
-          }
-          setActiveTab('inspector');
-        },
+        onSuccess: (data) => handleBookingSuccess(data),
         onError: (err: any) => {
           toast.error(`Approval failed: ${err.response?.data?.message || err.message}`);
         }
@@ -1317,63 +1320,23 @@ export default function ChatPage() {
         </div>
       )}
 
-      {showConfirmBookingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className={`premium-card rounded-2xl max-w-md w-full p-6 mx-4 border shadow-2xl space-y-4 ${
-            isDark ? 'border-card-border/80 bg-card-bg/95' : 'border-slate-200 bg-white'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20">
-                <Check className="h-5 w-5 text-indigo-400 font-bold" />
-              </div>
-              <div>
-                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Confirm Booking Details</h3>
-                <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Please check the lodging and transit choices before verifying booking.</p>
-              </div>
-            </div>
-
-            <div className={`p-3.5 rounded-xl space-y-2.5 ${isDark ? 'bg-slate-900/60' : 'bg-slate-50'}`}>
-              <div className="flex justify-between items-start text-xs">
-                <span className={`font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>🏨 Accommodation Choice:</span>
-                <span className={`font-bold text-right max-w-[60%] ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                  {getChosenHotelName()}
-                </span>
-              </div>
-              <div className="border-t border-dashed border-slate-550/10 dark:border-slate-100/10 my-2" />
-              <div className="flex justify-between items-start text-xs">
-                <span className={`font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>✈️ Transport Selected:</span>
-                <span className={`font-bold text-right max-w-[60%] ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                  {getChosenTransportName()}
-                </span>
-              </div>
-            </div>
-
-            <p className={`text-xs text-center font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              Can you continue with booking?
-            </p>
-
-            <div className="flex gap-2 justify-end pt-2">
-              <button
-                onClick={() => setShowConfirmBookingModal(false)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer text-center ${
-                  isDark ? 'bg-slate-805 hover:bg-slate-705 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                No, Go Back
-              </button>
-              <button
-                onClick={() => {
-                  setShowConfirmBookingModal(false);
-                  approveMutation.mutate();
-                }}
-                disabled={approveMutation.isPending}
-                className="flex-1 py-1.5 rounded-lg bg-accent-teal hover:bg-emerald-600 text-xs font-bold text-white transition active:scale-95 cursor-pointer text-center flex items-center justify-center gap-1"
-              >
-                Yes, Book Now
-              </button>
-            </div>
-          </div>
-        </div>
+      {showConfirmBookingModal && tripId && (
+        <RazorpayModal
+          context={context}
+          tripId={tripId}
+          isDark={isDark}
+          onSelfBook={() => {
+            // Self-book path: call the normal approve API (no payment)
+            setShowConfirmBookingModal(false);
+            approveMutation.mutate();
+          }}
+          onRazorpaySuccess={(data) => {
+            // Razorpay path: payment verified by server, trip already confirmed
+            setShowConfirmBookingModal(false);
+            handleBookingSuccess(data, data.bookingRefs);
+          }}
+          onClose={() => setShowConfirmBookingModal(false)}
+        />
       )}
     </div>
   );

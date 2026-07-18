@@ -12,6 +12,7 @@ import GoogleCallbackPage from './pages/GoogleCallbackPage';
 import ChatPage from './pages/ChatPage';
 import MyTripsPage from './pages/MyTripsPage';
 import AdminDashboard from './pages/AdminDashboard';
+import SupportPage from './pages/SupportPage'; // Newly added support page component
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
 
@@ -107,6 +108,9 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/auth/callback" element={<GoogleCallbackPage />} />
+              <Route element={<ProtectedRoute allowedRoles={['traveler', 'admin']} />}>
+                <Route path="/support" element={<SupportPage />} />
+              </Route>
 
               {/* Protected Traveler Routes */}
               <Route element={<ProtectedRoute allowedRoles={['traveler']} />}>

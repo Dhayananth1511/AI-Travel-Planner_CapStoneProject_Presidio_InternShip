@@ -36,7 +36,7 @@ const loginValidator = [
 router.post('/register', registerValidator, register);
 router.post('/login', loginValidator, login);
 router.post('/refresh', refresh);
-router.post('/logout', authenticate, logout);
+router.post('/logout', logout);
 
 // Google Sign-In Init — Public endpoint to start Google OAuth flow
 router.get('/google-login', googleAuthLogin);

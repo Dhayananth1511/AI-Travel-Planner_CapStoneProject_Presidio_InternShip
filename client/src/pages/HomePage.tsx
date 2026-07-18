@@ -10,6 +10,8 @@ import {
   Shield,
   Sparkles,
   ChevronRight,
+  Phone,
+  HelpCircle,
 } from 'lucide-react';
 import { useThemeStore } from '../store/themeStore';
 
@@ -315,6 +317,50 @@ export default function HomePage() {
           <div className="space-y-1 font-sans">
             <span className={`text-[11px] font-bold tracking-widest uppercase ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>📅 Calendar Synced</span>
             <p className={`text-[11px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Add schedule to your phone automatically</p>
+          </div>
+        </div>
+
+        {/* TROUBLESHOOT / SUPPORT SYSTEM BANNER SECTION */}
+        <div id="support-section" className="border-t pt-12 max-w-4xl mx-auto w-full space-y-6">
+          <div className="text-center">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+              Verification & Support Center
+            </span>
+            <h2 className={`text-2xl font-bold mt-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Troubleshoot Payment & Booking Issues
+            </h2>
+            <p className={`text-xs mt-1.5 max-w-xl mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Did payment details disappear or did you encounter calendar issues? Access our dedicated support center to submit a ticket, view resolution logs, or retrieve hotline contact details.
+            </p>
+          </div>
+
+          <div className={`premium-card rounded-2xl p-6 border shadow-lg max-w-2xl mx-auto transition-all ${
+            isDark ? 'bg-slate-900/30 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 text-left">
+                <div className="flex items-center gap-2 text-indigo-405">
+                  <Phone className="h-4.5 w-4.5 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Direct Support Phone Line</span>
+                </div>
+                <div className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  1***-***-**0
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  Standard carrier rates may apply.
+                </p>
+              </div>
+
+              <div className="w-full sm:w-auto">
+                <Link
+                  to="/support"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-opacity-95 px-5.5 py-3 text-xs font-bold text-white transition active:scale-95 hover:shadow-lg hover:shadow-primary/20 cursor-pointer"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  Go to Troubleshoot Page
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
 

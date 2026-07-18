@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 import {
   Compass, LogOut, User, LayoutDashboard, BarChart3,
-  Moon, Sun, Menu, X,
+  Moon, Sun, Menu, X, HelpCircle,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -16,8 +16,8 @@ export default function Navbar() {
 
   const isDark = theme === 'dark';
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setMobileOpen(false);
     navigate('/login');
   };
@@ -67,6 +67,10 @@ export default function Navbar() {
                       <Compass className="h-4 w-4" aria-hidden="true" />
                       Plan Trip
                     </Link>
+                    <Link to="/support" className={navLinkClass('/support')} aria-current={isActive('/support') ? 'page' : undefined}>
+                      <HelpCircle className="h-4 w-4" aria-hidden="true" />
+                      Troubleshoot & Help
+                    </Link>
                   </>
                 ) : (
                   <Link to="/admin" className={navLinkClass('/admin')} aria-current={isActive('/admin') ? 'page' : undefined}>
@@ -78,6 +82,7 @@ export default function Navbar() {
             ) : (
               <>
                 <Link to="/" className={navLinkClass('/')}>Home</Link>
+                <Link to="/support" className={navLinkClass('/support')}>Troubleshoot & Help</Link>
                 <Link to="/login" className={navLinkClass('/login')}>Login</Link>
                 <Link
                   to="/register"
@@ -199,6 +204,18 @@ export default function Navbar() {
                   >
                     <Compass className="h-4 w-4" /> Plan Trip
                   </Link>
+                  <Link
+                    to="/support"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                      isActive('/support')
+                        ? 'bg-primary/10 text-primary'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                    role="menuitem"
+                  >
+                    <HelpCircle className="h-4 w-4" /> Troubleshoot & Help
+                  </Link>
                 </>
               ) : (
                 <Link
@@ -230,6 +247,14 @@ export default function Navbar() {
                 role="menuitem"
               >
                 Home
+              </Link>
+              <Link
+                to="/support"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}
+                role="menuitem"
+              >
+                Troubleshoot & Help
               </Link>
               <Link
                 to="/login"

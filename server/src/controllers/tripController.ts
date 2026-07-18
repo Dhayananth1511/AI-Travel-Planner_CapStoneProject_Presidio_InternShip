@@ -195,3 +195,54 @@ export const syncCalendar = async (req: Request, res: Response): Promise<void> =
     res.status(statusCode).json({ success: false, message: error.message || 'Failed to sync calendar.' });
   }
 };
+
+// POST /api/trips/:tripId/razorpay-order — Create Razorpay payment order before checkout
+export const createRazorpayOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tripId = req.params.tripId as string;
+    const userId = req.user!.userId as string;
+
+    const result = await tripService.createTripRazorpayOrder(tripId, userId);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error: any) {
+    logger.error('Failed to create Razorpay order', { error });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ success: false, message: error.message || 'Failed to create payment order.' });
+  }
+};
+
+// POST /api/trips/:tripId/verify-payment — Verify Razorpay signature then approve trip
+export const verifyAndApproveTrip = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tripId = req.params.tripId as string;
+    const userId = req.user!.userId as string;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      res.status(400).json({ message: 'Missing Razorpay payment verification fields.' });
+      return;
+    }
+
+    const result = await tripService.verifyPaymentAndApproveTrip(
+      tripId,
+      userId,
+      { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+    );
+
+    res.json({
+      message: 'Payment verified! Trip confirmed.',
+      bookingRefs: result.bookingRefs,
+      status: result.status,
+      trip: result.trip,
+    });
+  } catch (error: any) {
+    logger.error('Payment verification / trip approval failed', { error });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ message: error.message || 'Payment verification failed.' });
+  }
+};

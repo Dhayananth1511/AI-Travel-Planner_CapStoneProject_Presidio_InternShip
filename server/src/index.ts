@@ -21,6 +21,7 @@ import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
 import tripRoutes from './routes/tripRoutes';
 import adminRoutes from './routes/adminRoutes';
+import queryRoutes from './routes/queryRoutes';
 
 const app = express();
 
@@ -93,6 +94,7 @@ app.get('/health/db', async (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/queries', queryRoutes);
 
 // ==========================================
 // UNMAPPED ROUTE FALLBACK (404)

@@ -23,7 +23,7 @@ interface InspectorTabProps {
   transportSaving: boolean;
   handleSelectTransport: (operator: string, mode: string) => void;
   handleAlternativeSelect: (suggestion: string) => void;
-  bookingRefs?: { hotel?: string; transport?: string; calendar?: string } | null;
+  bookingRefs?: { hotel?: string; transport?: string; calendar?: string; payment?: string } | null;
 }
 
 export const InspectorTab: React.FC<InspectorTabProps> = ({
@@ -136,6 +136,21 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
                   })()}
                 </code>
               </div>
+              {/* Payment Ref */}
+              {(() => {
+                const finalPayment = context.booking?.refs?.payment || bookingRefs?.payment;
+                if (!finalPayment || finalPayment === 'SELF_BOOKED') return null;
+                return (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10.5px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>💳 Payment ID</span>
+                    <code className={`text-[10.5px] font-bold px-2 py-0.5 rounded font-mono max-w-[55%] truncate ${
+                      isDark ? 'bg-slate-800 text-violet-400' : 'bg-violet-100 text-violet-800'
+                    }`} title={finalPayment}>
+                      {finalPayment.replace(/^RZP-/, '')}
+                    </code>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

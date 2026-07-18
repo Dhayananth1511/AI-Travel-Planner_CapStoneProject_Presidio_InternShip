@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import Trip from '../models/Trip';
 import User from '../models/User';
+import TroubleshootQuery from '../models/TroubleshootQuery';
 
 const escapeRegex = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -72,4 +73,28 @@ export const readSystemLogs = async (limit: number = 200) => {
       return { message: line, timestamp: new Date().toISOString(), level: 'unknown' };
     }
   });
+};
+
+export const getTroubleshootQueries = async (status?: string) => {
+  const query: any = {};
+  if (status) query.status = status;
+  return TroubleshootQuery.find(query)
+    .populate('userId', 'name email')
+    .sort({ createdAt: -1 });
+};
+
+export const resolveTroubleshootQuery = async (queryId: string, adminReply?: string) => {
+  const updateData: any = { status: 'RESOLVED' };
+  if (adminReply) {
+    updateData.adminReply = adminReply;
+  }
+  return TroubleshootQuery.findByIdAndUpdate(
+    queryId,
+    updateData,
+    { new: true }
+  ).populate('userId', 'name email');
+};
+
+export const adminGetTripById = async (tripId: string) => {
+  return Trip.findOne({ sessionId: tripId }).populate('userId', 'name email');
 };

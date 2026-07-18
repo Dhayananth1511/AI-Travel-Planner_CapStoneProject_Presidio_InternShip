@@ -55,4 +55,32 @@ export const tripService = {
     const res = await api.get(`/auth/google${tripId ? `?tripId=${tripId}` : ''}`);
     return res.data;
   },
+
+  // Razorpay MCP — create a payment order before checkout
+  async createRazorpayOrder(tripId: string) {
+    const res = await api.post(`/trips/${tripId}/razorpay-order`);
+    return res.data as {
+      success: boolean;
+      orderId?: string;
+      keyId?: string;
+      amount_inr?: number;           // Only accommodation + transport (the bookable amount)
+      accommodation_cost?: number;   // Hotel portion of the bill
+      transport_cost?: number;       // Transit portion of the bill
+      error?: string;
+    };
+  },
+
+  // Razorpay MCP — verify payment signature server-side and approve the trip
+  async verifyPaymentAndApprove(
+    tripId: string,
+    payload: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }
+  ) {
+    const res = await api.post(`/trips/${tripId}/verify-payment`, payload);
+    return res.data;
+  },
 };
+

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import axios from 'axios';
 import type { User } from '../types';
 
 interface AuthState {
@@ -8,7 +9,7 @@ interface AuthState {
   accessToken: string | null;
   setAuth: (user: User, token: string) => void;
   setToken: (token: string) => void;
-  logout: () => void;
+  logout: () => Promise<void> | void;
   isAuthenticated: () => boolean;
 }
 
@@ -25,7 +26,16 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token) => {
         set({ accessToken: token });
       },
-      logout: () => {
+      logout: async () => {
+        try {
+          await axios.post(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/logout`,
+            {},
+            { withCredentials: true }
+          );
+        } catch (error) {
+          console.warn('Backend session revocation failed', error);
+        }
         set({ user: null, accessToken: null });
       },
       isAuthenticated: () => !!get().user,

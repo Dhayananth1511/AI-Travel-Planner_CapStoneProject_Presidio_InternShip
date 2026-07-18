@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { authenticate, authorizeAdmin } from '../middleware/auth';
-import { getAllTrips, getAnalytics, getSystemLogs } from '../controllers/adminController';
+import {
+  getAllTrips,
+  getAnalytics,
+  getSystemLogs,
+  getQueries,
+  resolveQuery,
+  getSingleTripForAdmin
+} from '../controllers/adminController';
 
 const router = Router();
 
@@ -8,7 +15,10 @@ const router = Router();
 router.use(authenticate, authorizeAdmin);
 
 router.get('/trips', getAllTrips);
+router.get('/trips/:tripId', getSingleTripForAdmin);
 router.get('/analytics', getAnalytics);
 router.get('/logs', getSystemLogs);
+router.get('/queries', getQueries);
+router.post('/queries/:queryId/resolve', resolveQuery);
 
 export default router;
