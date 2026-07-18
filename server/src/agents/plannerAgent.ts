@@ -31,9 +31,6 @@ export async function runPlannerAgent(
   context: TripContext,
   longTermMemory: string
 ): Promise<PlannerAgentResult> {
-  logger.info('Supervisor: Extracting slot parameters from user message', { sessionId: context.sessionId });
-
-  // Step 1: Parameter Slot Extraction
   const currentYear = new Date().getFullYear();
   const currentDateStr = new Date().toISOString().split('T')[0];
 
@@ -44,6 +41,73 @@ export async function runPlannerAgent(
     .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
     .join('\n');
 
+  // Step 0: User message classification (Relevance and Cancellation checking)
+  const classificationPrompt = `You are an intent classifier for a personalized AI Travel Planner application.
+Analyze the user's latest message (and optionally the recent message history) and classify it into one of these intents:
+1. "CANCEL": The user explicitly asks to cancel, discard, abort, delete, reset or discard the current trip planning session or planned trip (e.g., "cancel the trip", "discard this", "cancel please", "reset trip", "clear this planning").
+2. "IRRELEVANT": The user's query is completely unrelated to travel planning, vacations, itineraries, hotel/transport bookings, destination recommendations, or trip budgets (e.g., "how to write a python code", "what is the capital of France", "cook a recipe", "weather in general without planning a trip", "general chatting unrelated to travel").
+3. "RELEVANT": The user is planning a trip, discussing destinations, dates, budgets, travelers, transport, accommodations, activities, or asking travel-related planning questions.
+
+You must respond ONLY with a valid JSON block of this exact structure:
+{
+  "intent": "CANCEL" | "IRRELEVANT" | "RELEVANT",
+  "reasoning": "brief explanation"
+}`;
+
+  let classificationIntent = "RELEVANT";
+  try {
+    const classificationResponse = await withRetry(() => llm.invoke([
+      new SystemMessage(classificationPrompt),
+      new HumanMessage(`User Message: ${userMessage}\n\nRecent History:\n${recentHistory || '(No history)'}`),
+    ]));
+    const parsedClass = extractJson(classificationResponse.content.toString());
+    if (parsedClass && (parsedClass.intent === 'CANCEL' || parsedClass.intent === 'IRRELEVANT')) {
+      classificationIntent = parsedClass.intent;
+    }
+  } catch (err: any) {
+    logger.warn('Failed to classify user intent, defaulting to RELEVANT', { error: err.message });
+  }
+
+  if (classificationIntent === 'CANCEL') {
+    logger.info('Supervisor: User requested trip cancellation/discard.', { sessionId: context.sessionId });
+    const updatedContext: TripContext = {
+      ...context,
+      status: 'CANCELLED',
+      input: {},
+      weather: {},
+      transport: {},
+      accommodation: {},
+      activities: {},
+      budget: {},
+      itinerary: {},
+      local_transport: {},
+      booking: { refs: {}, confirmed_at: null },
+      formattedPlan: '',
+    };
+    const cancelMsg = "Understood. The current trip planning has been cancelled and discarded. Let me know when you'd like to start planning a new trip!";
+    updatedContext.conversationHistory.push({ role: 'assistant', content: cancelMsg });
+    return {
+      context: updatedContext,
+      status: 'NEEDS_INFO',
+      clarifyingQuestion: cancelMsg,
+    };
+  }
+
+  if (classificationIntent === 'IRRELEVANT') {
+    logger.info('Supervisor: User message classified as irrelevant to travel planning.', { sessionId: context.sessionId });
+    const updatedContext: TripContext = { ...context };
+    const irrelevantMsg = "I am a dedicated travel assistant. I can only help you with travel-related queries such as suggesting destinations, planning itineraries, managing budgets, and transportation. Please let me know how I can help plan your next trip!";
+    updatedContext.conversationHistory.push({ role: 'assistant', content: irrelevantMsg });
+    return {
+      context: updatedContext,
+      status: 'NEEDS_INFO',
+      clarifyingQuestion: irrelevantMsg,
+    };
+  }
+
+  logger.info('Supervisor: Extracting slot parameters from user message', { sessionId: context.sessionId });
+
+  // Step 1: Parameter Slot Extraction
   const extractionPrompt = getPlannerExtractionPrompt(currentDateStr, currentYear, recentHistory, context.input);
 
   const extractionResponse = await withRetry(() => llm.invoke([
