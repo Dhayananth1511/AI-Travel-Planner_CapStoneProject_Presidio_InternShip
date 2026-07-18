@@ -36,6 +36,11 @@ export const tripService = {
     return res.data;
   },
 
+  async cancelTrip(tripId: string) {
+    const res = await api.post(`/trips/${tripId}/cancel`);
+    return res.data;
+  },
+
   async deleteTrip(tripId: string) {
     const res = await api.delete(`/trips/${tripId}`);
     return res.data;

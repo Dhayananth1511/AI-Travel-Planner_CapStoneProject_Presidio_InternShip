@@ -227,6 +227,15 @@ export const cancelTripByUser = async (tripId: string, userId: string) => {
   await trip.save();
 };
 
+export const deleteTripByUser = async (tripId: string, userId: string) => {
+  const trip = await Trip.findOneAndDelete({ sessionId: tripId, userId });
+  if (!trip) {
+    const err = new Error('Trip not found or already removed.');
+    (err as any).statusCode = 404;
+    throw err;
+  }
+};
+
 export const selectHotelChoice = async (tripId: string, userId: string, hotelName: string, category: string) => {
   const trip = await Trip.findOne({ sessionId: tripId, userId });
   if (!trip) {

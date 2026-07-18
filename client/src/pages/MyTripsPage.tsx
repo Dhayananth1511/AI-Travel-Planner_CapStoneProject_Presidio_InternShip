@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Compass, CalendarRange, AlertTriangle } from 'lucide-react';
 import { useThemeStore } from '../store/themeStore';
 import { TripCard } from '../components/trips/TripCard';
-import { useUserTripsQuery, useCancelTripMutation } from '../hooks/useTrips';
+import { useUserTripsQuery, useCancelTripMutation, useDeleteTripMutation } from '../hooks/useTrips';
 
 export default function MyTripsPage() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export default function MyTripsPage() {
   const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<'ALL' | 'PLANNED' | 'CONFIRMED' | 'DRAFTS' | 'CANCELLED'>('ALL');
   const [tripToCancel, setTripToCancel] = useState<{ id: string; name: string } | null>(null);
+  const [tripToDelete, setTripToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch traveler's trips list
   const { data, isLoading, isError } = useUserTripsQuery();
@@ -18,8 +19,15 @@ export default function MyTripsPage() {
   // Mutation to cancel a trip (soft delete - updates status to CANCELLED)
   const cancelMutation = useCancelTripMutation();
 
+  // Mutation to delete a trip permanently
+  const deleteMutation = useDeleteTripMutation();
+
   const handleCancelTrip = (tripId: string, destination: string) => {
     setTripToCancel({ id: tripId, name: destination || 'this destination' });
+  };
+
+  const handleDeleteTrip = (tripId: string, destination: string) => {
+    setTripToDelete({ id: tripId, name: destination || 'this destination' });
   };
 
   const getStatusBadgeClass = (status: string) => {
@@ -153,7 +161,9 @@ export default function MyTripsPage() {
               trip={trip}
               isDark={isDark}
               cancelPending={cancelMutation.isPending}
+              deletePending={deleteMutation.isPending}
               handleCancelTrip={handleCancelTrip}
+              handleDeleteTrip={handleDeleteTrip}
               getStatusBadgeClass={getStatusBadgeClass}
             />
           ))}
@@ -188,9 +198,46 @@ export default function MyTripsPage() {
                   setTripToCancel(null);
                 }}
                 disabled={cancelMutation.isPending}
-                className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-red-650 hover:bg-red-500 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Plan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tripToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className={`rounded-2xl max-w-sm w-full p-6 mx-4 border shadow-2xl space-y-4 ${isDark ? 'bg-[#121824]/95 border-slate-800' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center gap-3 text-red-500">
+              <div className="h-10 w-10 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Delete Trip Permanently</h3>
+                <p className="text-[10px] text-red-400/80 font-semibold">Danger: This cannot be undone!</p>
+              </div>
+            </div>
+            <p className={`text-xs leading-normal ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              Are you sure you want to permanently delete your trip plan to <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{tripToDelete.name}</span>? All details, cost breakdowns, and chat history for this trip will be lost forever.
+            </p>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setTripToDelete(null)}
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer border ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'}`}
+              >
+                No, Keep It
+              </button>
+              <button
+                onClick={() => {
+                  deleteMutation.mutate(tripToDelete.id);
+                  setTripToDelete(null);
+                }}
+                disabled={deleteMutation.isPending}
+                className="px-3.5 py-2 rounded-lg bg-red-650 hover:bg-red-505 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
               </button>
             </div>
           </div>

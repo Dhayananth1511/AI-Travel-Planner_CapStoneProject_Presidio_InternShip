@@ -87,7 +87,21 @@ export const getTripById = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// DELETE /api/trips/:tripId — Cancel a trip
+// DELETE /api/trips/:tripId — Delete a trip permanently from database
+export const deleteTrip = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tripId = req.params.tripId as string;
+    const userId = req.user!.userId as string;
+
+    await tripService.deleteTripByUser(tripId, userId);
+    res.json({ message: 'Trip deleted permanently' });
+  } catch (error: any) {
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ message: error.message || 'Failed to delete trip' });
+  }
+};
+
+// POST /api/trips/:tripId/cancel — Cancel a trip (soft delete)
 export const cancelTrip = async (req: Request, res: Response): Promise<void> => {
   try {
     const tripId = req.params.tripId as string;

@@ -13,6 +13,16 @@ export function useUserTripsQuery() {
 export function useCancelTripMutation() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationFn: tripService.cancelTrip,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userTrips'] });
+    },
+  });
+}
+
+export function useDeleteTripMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: tripService.deleteTrip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userTrips'] });

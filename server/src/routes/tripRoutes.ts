@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import {
   createOrUpdateTrip, approveTrip, rejectTrip,
-  getUserTrips, getTripById, cancelTrip, selectHotel,
+  getUserTrips, getTripById, cancelTrip, deleteTrip, selectHotel,
   getPlacePhoto, selectTransport, syncCalendar
 } from '../controllers/tripController';
 
@@ -22,6 +22,7 @@ router.post('/:tripId/reject', rejectTrip);
 router.post('/:tripId/select-hotel', selectHotel);
 router.post('/:tripId/select-transport', selectTransport);
 router.post('/:tripId/sync-calendar', syncCalendar);
-router.delete('/:tripId', cancelTrip);
+router.post('/:tripId/cancel', cancelTrip);
+router.delete('/:tripId', deleteTrip);
 
 export default router;

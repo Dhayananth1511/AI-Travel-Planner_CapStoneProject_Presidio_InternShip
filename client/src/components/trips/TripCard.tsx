@@ -7,7 +7,9 @@ interface TripCardProps {
   trip: TripSummary;
   isDark: boolean;
   cancelPending: boolean;
+  deletePending: boolean;
   handleCancelTrip: (tripId: string, destination: string) => void;
+  handleDeleteTrip: (tripId: string, destination: string) => void;
   getStatusBadgeClass: (status: string) => string;
 }
 
@@ -15,7 +17,9 @@ export const TripCard: React.FC<TripCardProps> = ({
   trip,
   isDark,
   cancelPending,
+  deletePending,
   handleCancelTrip,
+  handleDeleteTrip,
   getStatusBadgeClass,
 }) => {
   const input = trip.input || {};
@@ -69,6 +73,18 @@ export const TripCard: React.FC<TripCardProps> = ({
       {/* Action footer */}
       <div className={`p-4 border-t flex items-center justify-between ${isDark ? 'bg-slate-900/40 border-card-border' : 'bg-slate-100 border-slate-205'}`}>
         <div>
+          {trip.status === 'CANCELLED' && (
+            <button
+              onClick={() => handleDeleteTrip(trip.sessionId, input.destination || '')}
+              disabled={deletePending}
+              className="flex items-center gap-1 text-[11px] font-semibold text-red-500 hover:text-red-400 transition cursor-pointer disabled:opacity-50"
+              title="Delete Permanently"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Permanently
+            </button>
+          )}
+
           {trip.status !== 'CANCELLED' && trip.status !== 'CONFIRMED' && (
             <button
               onClick={() => handleCancelTrip(trip.sessionId, input.destination || '')}
