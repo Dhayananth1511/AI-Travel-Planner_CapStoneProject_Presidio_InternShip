@@ -104,7 +104,7 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
                             {option.operator} ({option.mode})
                           </span>
                           <span className={isDark ? 'text-emerald-450 font-semibold' : 'text-emerald-705 font-semibold'}>
-                            ₹{option.cost_inr.toLocaleString()} • {option.duration_hrs}h
+                            ₹{option.cost_inr.toLocaleString()} (Round-trip) • {option.duration_hrs}h
                           </span>
                         </div>
                         
@@ -272,7 +272,7 @@ export const TransportOptionsCard: React.FC<TransportOptionsCardProps> = ({
 
                     <div className="text-right whitespace-nowrap">
                       <p className="text-xs font-bold text-emerald-500">
-                        ₹{(option.cost_inr || 0).toLocaleString()}
+                        ₹{(option.cost_inr || 0).toLocaleString()} <span className="text-[9px] font-semibold text-emerald-600 block">(Round-trip)</span>
                       </p>
                       <p className={`text-[9px] font-normal ${isDark ? 'text-slate-450' : 'text-slate-400'}`}>
                         ₹{(option.cost_per_traveler || 0).toLocaleString()} each

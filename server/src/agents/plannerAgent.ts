@@ -46,8 +46,12 @@ export async function runPlannerAgent(
   const classificationPrompt = `You are an intent classifier for a personalized AI Travel Planner application.
 Analyze the user's latest message (and optionally the recent message history) and classify it into one of these intents:
 1. "CANCEL": The user explicitly asks to cancel, discard, abort, delete, reset or discard the current trip planning session or planned trip (e.g., "cancel the trip", "discard this", "cancel please", "reset trip", "clear this planning", "delete it", "drop it", "drop").
-2. "IRRELEVANT": The user's query is completely unrelated to travel planning, vacations, itineraries, hotel/transport bookings, destination recommendations, or trip budgets (e.g., "how to write a python code", "what is the capital of France", "cook a recipe", "weather in general without planning a trip", "general chatting unrelated to travel").
-3. "RELEVANT": The user is planning a trip, discussing destinations, dates, budgets, travelers, transport, accommodations, activities, or asking travel-related planning questions.
+2. "IRRELEVANT": The user's query is completely unrelated to travel planning, vacations, itineraries, hotel/transport bookings, destination recommendations, or trip budgets.
+3. "RELEVANT": The user is planning a trip, discussing destinations, dates, budgets, travelers, transport, accommodations, activities, asking travel questions, or responding to clarifying questions (like providing dates, e.g., "23rd", "23 rd", "23", "july 23 rd", "10 days", "3 travelers").
+
+CRITICAL RULES:
+- A user message providing dates or numbers (e.g. "23 rd", "23rd", "23", "15th", "5", "5 days", "₹50000") is a direct answer to a travel planning slot (like travel dates, travelers count, or budget) and must ALWAYS be classified as "RELEVANT". Never classify date/number inputs or short suffix dates as "CANCEL" or "IRRELEVANT".
+- Check the Recent History to contextualize short user replies. If the assistant previously asked for travel parameters (dates, budget, destination, interests, travelers) and the user responded with dates or numbers, classify it as "RELEVANT".
 
 You must respond ONLY with a valid JSON block of this exact structure:
 {
@@ -67,6 +71,18 @@ You must respond ONLY with a valid JSON block of this exact structure:
     }
   } catch (err: any) {
     logger.warn('Failed to classify user intent, defaulting to RELEVANT', { error: err.message });
+  }
+
+  if (classificationIntent === 'CANCEL') {
+    const lowerMsg = userMessage.toLowerCase();
+    const hasDateIndicators = /\b(july|june|august|september|october|november|december|january|february|march|april|may)\b/i.test(lowerMsg) ||
+      /\b\d{1,2}(st|nd|rd|th)?\b/i.test(lowerMsg) ||
+      /\b(start|end|date|dates|budget|travelers|members|people|days|weeks|months)\b/i.test(lowerMsg);
+      
+    if (hasDateIndicators && !/\b(cancel|abort|discard|delete|remove|clear)\b/i.test(lowerMsg)) {
+      logger.info('Supervisor Override: Intent classified as CANCEL, but contains date/parameter keywords. Bypassing CANCEL.', { sessionId: context.sessionId });
+      classificationIntent = 'RELEVANT';
+    }
   }
 
   if (classificationIntent === 'CANCEL') {
@@ -169,9 +185,18 @@ You must respond ONLY with a valid JSON block of this exact structure:
     newDestination !== '' &&                // a new destination was extracted
     previousDestination !== newDestination; // and they are different
 
-  if (destinationChanged) {
+  const previousStartDate = context.input.start_date;
+  const newStartDate = updatedInput.start_date;
+  const previousEndDate = context.input.end_date;
+  const newEndDate = updatedInput.end_date;
+
+  const datesChanged =
+    (previousStartDate && newStartDate && previousStartDate !== newStartDate) ||
+    (previousEndDate && newEndDate && previousEndDate !== newEndDate);
+
+  if (destinationChanged || datesChanged) {
     logger.info(
-      `Supervisor: Destination changed from "${context.input.destination}" to "${updatedInput.destination}". Clearing all stale cached agent outputs.`,
+      `Supervisor: ${destinationChanged ? 'Destination' : 'Dates'} changed. Clearing all stale cached agent outputs.`,
       { sessionId: context.sessionId }
     );
     updatedContext.weather = undefined;

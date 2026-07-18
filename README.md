@@ -639,8 +639,8 @@ sequenceDiagram
   * **Context MISS**: Triggers the **Model Context Protocol (MCP) server** (e.g., Maps MCP fetching Google Places attractions) using exponential backoff retry policies to retrieve fresh data.
 
 ### 5. Programmatic Budget Checks (`budgetAgent.ts`)
-* **Calibration**: The **Budget Agent** calculates base estimates:
-  $$\text{Cheapest Transport Option} + (\text{Cheapest Accommodation Option} \times \text{Nights}) + \text{Activity Entry Fees} + \text{Dining Allowances}$$
+* **Calibration**: The **Budget Agent** calculates base estimates. To prevent underestimating costs, transport fares (flights, trains, buses, and transfers) represent **round-trip** costs (onward + return journeys):
+  $$\text{Cheapest Round-Trip Transport} + (\text{Cheapest Accommodation Option} \times \text{Nights}) + \text{Activity Entry Fees} + \text{Dining Allowances}$$
 * **Divergence Logic**:
   * **Infeasible**: If the computed cost exceeds the traveler's budget cap, the workflow halts itinerary creation, appends money-saving alternatives (like switching hotel tiers, reducing travelers, or limiting sightseeing) to the chat, and sets status to `NEEDS_INFO`.
   * **Feasible**: Continues.
@@ -796,7 +796,7 @@ The Coordinator Agent dispatches all four agents **simultaneously** using `Promi
 | Agent | Input | MCP Server Called | Output |
 |:---|:---|:---|:---|
 | **Weather Agent** | `{ destination, start_date, end_date }` | `weather-mcp-server → OpenMeteo` | `{ forecast: [...dailyConditions] }` |
-| **Transport Agent** | `{ origin, destination, travel_dates }` | `transit-mcp-server → Mock Rail/Bus` | `{ options: [...trainBusOptions], estimated_cost_inr }` |
+| **Transport Agent** | `{ origin, destination, travel_dates }` | `transit-mcp-server → Mock Rail/Bus` | `{ options: [...trainBusOptions], estimated_cost_inr }` (Pricing is doubled to account for round-trip return travel) |
 | **Accommodation Agent** | `{ destination, check_in, check_out, travelers }` | `booking-mcp-server → Mock Hotel` | `{ hotels: [...], recommended, price_per_night }` |
 | **Activity Agent** | `{ destination, interests, days }` | `maps-mcp-server → Google Places` | `{ attractions: [...], restaurants: [...], timings, entry_fees }` |
 
@@ -961,6 +961,7 @@ Real systems fail. This section defines what happens when each component in the 
 | **Weather MCP** | OpenMeteo timeout / rate limit | Retry with exponential backoff (3 attempts), then return fallback forecast | Transparent — last known data used |
 | **Maps MCP** | Google Maps API quota exceeded | Return safe fallback message; flag in response | Minor delay, advisory shown |
 | **Maps MCP / Geoapify** | Geocoding failure / unrealistic local distance (>50km) | Fallback to smart deterministic distance hash based on location name pairing | Keeps layout consistent, prevents budget spikes, shows warning log |
+| **Activity Agent / UI** | APIs fail to return attractions, or LLM filters out all attractions | Generate LLM recommendations; React frontend filters out hotels/resorts and, if empty, displays a fallback message | Keeps layout clean, prevents visual bugs, displays advisory message |
 | **Local Transit Agent** | Transit estimation API timeout / failure | Fallback to smart local transit estimate | Minimal impact, keeps routing flow alive |
 | **Groq LLM** | Invalid JSON in LLM response | Re-prompt with stricter JSON-only system instruction (max 2 retries) | Slight latency |
 | **Groq LLM** | Rate limit / timeout | Wait 5s, retry once; if fails, return partial plan with advisory message | User sees partial plan |

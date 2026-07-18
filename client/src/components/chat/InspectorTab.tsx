@@ -658,52 +658,52 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
       )}
 
       {/* ACTIVITIES SPECIALIST ATTENTION */}
-      {context.activities && (
-        <div id="section-sightseeing" className="premium-card rounded-xl p-4 space-y-2 scroll-mt-16">
-          <div className="flex items-center justify-between">
-            <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
-              isDark ? 'text-indigo-400' : 'text-indigo-700'
-            }`}>
-              🎡 Sightseeing Specialist Agent
-            </h4>
-            {/* Source legend for sightseeing */}
-            <div className="flex gap-1 flex-wrap">
-              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'geoapify_places') && (
-                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
-                  🗺️ Geo
-                </span>
-              )}
-              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'hotelbeds_api') && (
-                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-blue-500/15 border border-blue-400/30 text-blue-600 dark:text-blue-400 leading-none uppercase tracking-wide">
-                  🏨 HB
-                </span>
-              )}
-              {(context.activities.attraction_options || []).some((a: any) => a.source_type === 'llm_recommendation' || a.is_llm_recommended) && (
-                <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
-                  💡 AI
-                </span>
-              )}
-            </div>
-          </div>
+      {context.activities && (() => {
+        const validAttractions = (context.activities.attraction_options || []).filter((opt: any) => {
+          const nameStr = opt?.name || '';
+          return !(
+            nameStr.toLowerCase().includes('hotel') ||
+            nameStr.toLowerCase().includes('stay') ||
+            nameStr.toLowerCase().includes('inn') ||
+            nameStr.toLowerCase().includes('resort')
+          );
+        });
 
-          {Array.isArray(context.activities.attraction_options) && context.activities.attraction_options.length > 0 ? (
-            <div className="space-y-3 pt-1">
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                📍 Curated Places of Interest
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {context.activities.attraction_options.map((opt: any, idx: number) => {
-                  // Only display real tourist places/attractions (exclude hotels showing on activities)
-                  const nameStr = opt.name || '';
-                  if (
-                    nameStr.toLowerCase().includes('hotel') ||
-                    nameStr.toLowerCase().includes('stay') ||
-                    nameStr.toLowerCase().includes('inn') ||
-                    nameStr.toLowerCase().includes('resort')
-                  ) {
-                    return null;
-                  }
-                  return (
+        return (
+          <div id="section-sightseeing" className="premium-card rounded-xl p-4 space-y-2 scroll-mt-16">
+            <div className="flex items-center justify-between">
+              <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
+                isDark ? 'text-indigo-400' : 'text-indigo-700'
+              }`}>
+                🎡 Sightseeing Specialist Agent
+              </h4>
+              {/* Source legend for sightseeing */}
+              <div className="flex gap-1 flex-wrap">
+                {validAttractions.some((a: any) => a.source_type === 'geoapify_places') && (
+                  <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-400 leading-none uppercase tracking-wide">
+                    🗺️ Geo
+                  </span>
+                )}
+                {validAttractions.some((a: any) => a.source_type === 'hotelbeds_api') && (
+                  <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-blue-500/15 border border-blue-400/30 text-blue-600 dark:text-blue-400 leading-none uppercase tracking-wide">
+                    🏨 HB
+                  </span>
+                )}
+                {validAttractions.some((a: any) => a.source_type === 'llm_recommendation' || a.is_llm_recommended) && (
+                  <span className="text-[7.5px] font-bold px-1 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
+                    💡 AI
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {validAttractions.length > 0 ? (
+              <div className="space-y-3 pt-1">
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  📍 Curated Places of Interest
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {validAttractions.map((opt: any, idx: number) => (
                     <AttractionCard
                       key={idx}
                       item={opt}
@@ -711,15 +711,15 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
                       destination={context.input?.destination || ''}
                       isDark={isDark}
                     />
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-550 italic">No sightseeing coordinates mapped in this area.</p>
-          )}
-        </div>
-      )}
+            ) : (
+              <p className="text-xs text-slate-550 italic">No sightseeing coordinates mapped in this area.</p>
+            )}
+          </div>
+        );
+      })()}
 
             {/* LOCAL TRANSIT — Hotel → Tourist Places (Geoapify-powered) */}
       {context.local_transport && context.local_transport.distances_from_hotel && context.local_transport.distances_from_hotel.length > 0 && (

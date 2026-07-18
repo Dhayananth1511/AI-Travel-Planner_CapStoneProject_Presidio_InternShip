@@ -134,8 +134,8 @@ export async function getTransportOptions(
               mode: 'Transfer',
               operator: opt.operator,
               duration_hrs: opt.duration_hrs,
-              cost_per_traveler: Math.round(opt.cost_inr / travelers),
-              cost_inr: opt.cost_inr,
+              cost_per_traveler: Math.round((opt.cost_inr * 2) / travelers), // Double for round-trip return travel
+              cost_inr: opt.cost_inr * 2, // Double for round-trip return travel
               departure: opt.departure,
               arrival: opt.arrival,
               rating: 4.5,
@@ -187,8 +187,8 @@ export async function getTransportOptions(
             mode: 'Flight',
             operator: `${airline} (${flightCode})`,
             duration_hrs: dur,
-            cost_per_traveler: estPricePerPerson,
-            cost_inr: estPricePerPerson * travelers,
+            cost_per_traveler: estPricePerPerson * 2, // Double for round-trip return travel
+            cost_inr: estPricePerPerson * travelers * 2, // Double for round-trip return travel
             departure: depTime,
             arrival: arrTime,
             rating: parseFloat((4.0 + Math.random() * 0.9).toFixed(1)),
@@ -210,8 +210,8 @@ export async function getTransportOptions(
         mode: 'Flight',
         operator: `${getIataCode(origin)} -> ${getIataCode(destination)} Estimated Flight`,
         duration_hrs: fallbackFlightDuration,
-        cost_per_traveler: fallbackFlightPricePerPerson,
-        cost_inr: fallbackFlightPricePerPerson * travelers,
+        cost_per_traveler: fallbackFlightPricePerPerson * 2, // Double for round-trip return travel
+        cost_inr: fallbackFlightPricePerPerson * travelers * 2, // Double for round-trip return travel
         departure: '09:00',
         arrival: new Date(new Date('2000-01-01T09:00:00').getTime() + fallbackFlightDuration * 3600000)
           .toTimeString().substring(0, 5),
@@ -232,8 +232,8 @@ export async function getTransportOptions(
       mode: 'Train',
       operator: 'Indian Railways — Superfast Express',
       duration_hrs: trainDuration,
-      cost_per_traveler: train3ACCostPerPerson,
-      cost_inr: train3ACCostPerPerson * travelers,
+      cost_per_traveler: train3ACCostPerPerson * 2, // Double for round-trip return travel
+      cost_inr: train3ACCostPerPerson * travelers * 2, // Double for round-trip return travel
       departure: '06:15',
       arrival: new Date(new Date('2000-01-01T06:15:00').getTime() + trainDuration * 3600000)
         .toTimeString().substring(0, 5),
@@ -249,8 +249,8 @@ export async function getTransportOptions(
       mode: 'Train',
       operator: 'Indian Railways — Rajdhani / Shatabdi',
       duration_hrs: Math.max(0.5, Math.round((distanceKm / 75) * 10) / 10), // slightly faster
-      cost_per_traveler: train2ACCostPerPerson,
-      cost_inr: train2ACCostPerPerson * travelers,
+      cost_per_traveler: train2ACCostPerPerson * 2, // Double for round-trip return travel
+      cost_inr: train2ACCostPerPerson * travelers * 2, // Double for round-trip return travel
       departure: '16:30',
       arrival: new Date(new Date('2000-01-01T16:30:00').getTime() + Math.max(0.5, Math.round((distanceKm / 75) * 10) / 10) * 3600000)
         .toTimeString().substring(0, 5),
@@ -268,8 +268,8 @@ export async function getTransportOptions(
       mode: 'Bus',
       operator: 'Intercity Volvo — Multi-Axle Sleeper',
       duration_hrs: busDuration,
-      cost_per_traveler: busVolvoPerPerson,
-      cost_inr: busVolvoPerPerson * travelers,
+      cost_per_traveler: busVolvoPerPerson * 2, // Double for round-trip return travel
+      cost_inr: busVolvoPerPerson * travelers * 2, // Double for round-trip return travel
       departure: '21:30',
       arrival: new Date(new Date('2000-01-01T21:30:00').getTime() + busDuration * 3600000)
         .toTimeString().substring(0, 5),
@@ -284,8 +284,8 @@ export async function getTransportOptions(
       mode: 'Bus',
       operator: 'KSRTC / State RTC — Semi-Sleeper',
       duration_hrs: Math.round((durationMin / 60 + 1.5) * 10) / 10,
-      cost_per_traveler: busRegularPerPerson,
-      cost_inr: busRegularPerPerson * travelers,
+      cost_per_traveler: busRegularPerPerson * 2, // Double for round-trip return travel
+      cost_inr: busRegularPerPerson * travelers * 2, // Double for round-trip return travel
       departure: '22:00',
       arrival: new Date(new Date('2000-01-01T22:00:00').getTime() + Math.round((durationMin / 60 + 1.5) * 10) / 10 * 3600000)
         .toTimeString().substring(0, 5),
