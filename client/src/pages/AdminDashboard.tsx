@@ -391,60 +391,63 @@ export default function AdminDashboard() {
               isDark ? 'divide-slate-850 bg-slate-950/10' : 'divide-slate-200 bg-white'
             }`}>
               {tripsData?.trips && tripsData.trips.length > 0 ? (
-                tripsData.trips.map((trip: TripItem) => (
-                  <tr
-                    key={trip.sessionId}
-                    onClick={() => setSelectedTrip(trip)}
-                    className={`transition cursor-pointer ${
-                      isDark ? 'hover:bg-slate-800/30' : 'hover:bg-indigo-50/50'
-                    }`}
-                  >
-                    <td className="px-6 py-4.5 font-mono text-slate-400 font-medium">
-                      #{trip.sessionId.substring(0, 10)}
-                    </td>
-                    <td className="px-6 py-4.5">
-                      <div className={`font-semibold transition-colors ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
-                        {trip.userId?.name || 'Anonymous Agent'}
-                      </div>
-                      <div className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{trip.userId?.email || 'no-email'}</div>
-                    </td>
-                    <td className={`px-6 py-4.5 font-semibold transition-colors ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>
-                      {trip.input.destination || 'Not determined'}
-                    </td>
-                    <td className="px-6 py-4.5 font-semibold">
-                      <div className={`font-bold transition-colors ${isDark ? 'text-slate-200' : 'text-slate-950'}`}>
-                        ₹{trip.input.budget_inr ? trip.input.budget_inr.toLocaleString() : 'N/A'}
-                      </div>
-                      <div className={`text-[10px] mt-0.5 font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                        Est: {trip.budget?.total_cost_inr || trip.budget?.total_estimated_cost
-                          ? `₹${(trip.budget?.total_cost_inr || trip.budget?.total_estimated_cost || 0).toLocaleString()}`
-                          : 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4.5 text-center">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${trip.status === 'CONFIRMED'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
-                            : trip.status === 'PLANNED'
-                              ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/25'
-                              : trip.status === 'CANCELLED'
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/25'
-                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/25'
-                          }`}
-                      >
-                        {trip.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4.5 text-right font-mono text-slate-550">
-                      {new Date(trip.createdAt).toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                  </tr>
-                ))
+                tripsData.trips.map((trip: TripItem) => {
+                  const input = trip.input || {};
+                  return (
+                    <tr
+                      key={trip.sessionId}
+                      onClick={() => setSelectedTrip(trip)}
+                      className={`transition cursor-pointer ${
+                        isDark ? 'hover:bg-slate-800/30' : 'hover:bg-indigo-50/50'
+                      }`}
+                    >
+                      <td className="px-6 py-4.5 font-mono text-slate-400 font-medium">
+                        #{trip.sessionId.substring(0, 10)}
+                      </td>
+                      <td className="px-6 py-4.5">
+                        <div className={`font-semibold transition-colors ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
+                          {trip.userId?.name || 'Anonymous Agent'}
+                        </div>
+                        <div className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{trip.userId?.email || 'no-email'}</div>
+                      </td>
+                      <td className={`px-6 py-4.5 font-semibold transition-colors ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>
+                        {input.destination || 'Not determined'}
+                      </td>
+                      <td className="px-6 py-4.5 font-semibold">
+                        <div className={`font-bold transition-colors ${isDark ? 'text-slate-200' : 'text-slate-955'}`}>
+                          ₹{input.budget_inr ? input.budget_inr.toLocaleString() : 'N/A'}
+                        </div>
+                        <div className={`text-[10px] mt-0.5 font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                          Est: {trip.budget?.total_cost_inr || trip.budget?.total_estimated_cost
+                            ? `₹${(trip.budget?.total_cost_inr || trip.budget?.total_estimated_cost || 0).toLocaleString()}`
+                            : 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4.5 text-center">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${trip.status === 'CONFIRMED'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
+                              : trip.status === 'PLANNED'
+                                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/25'
+                                : trip.status === 'CANCELLED'
+                                  ? 'bg-red-500/10 text-red-400 border border-red-500/25'
+                                  : 'bg-amber-500/10 text-amber-500 border border-amber-500/25'
+                            }`}
+                        >
+                          {trip.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4.5 text-right font-mono text-slate-550">
+                        {new Date(trip.createdAt).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} className="text-center py-8 text-slate-500">

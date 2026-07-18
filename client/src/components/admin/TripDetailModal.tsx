@@ -14,17 +14,19 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
   isDark,
   onClose,
 }) => {
+  const input = selectedTrip.input || {};
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className={`relative w-full max-w-4xl max-h-[85vh] overflow-y-auto border rounded-2xl p-6 shadow-2xl space-y-6 transition-colors ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-205'
       }`}>
 
         {/* Modal Close Button */}
         <button
           onClick={onClose}
           className={`absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg transition active:scale-95 focus:outline-none cursor-pointer ${
-            isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-205 text-slate-600 hover:text-slate-900 border border-slate-200'
+            isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-205 text-slate-600 hover:text-slate-900 border border-slate-202'
           }`}
         >
           <span className="text-xl font-bold">&times;</span>
@@ -42,7 +44,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                   : selectedTrip.status === 'PLANNED'
                     ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/25'
                     : selectedTrip.status === 'CANCELLED'
-                      ? 'bg-red-500/10 text-red-550 border border-red-550/25'
+                      ? 'bg-red-500/10 text-red-550 border border-red-555/25'
                       : 'bg-amber-500/10 text-amber-500 border border-amber-500/25'
                 }`}
             >
@@ -59,34 +61,34 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
           {/* Left Side: Parameters & Budget Details */}
           <div className="md:col-span-1 space-y-4">
             <div className={`p-4 border rounded-xl space-y-3 transition-colors ${
-              isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+              isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-55 border-slate-200'
             }`}>
-              <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-indigo-400' : 'text-indigo-655'}`}>
+              <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-indigo-400' : 'text-indigo-650'}`}>
                 Trip Details
               </h3>
-              <div className={`space-y-2 text-xs ${isDark ? 'text-slate-350' : 'text-slate-600'}`}>
+              <div className={`space-y-2 text-xs ${isDark ? 'text-slate-350' : 'text-slate-605'}`}>
                 <div>
                   <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-550' : 'text-slate-400'}`}>Destination</span>
-                  <span className="font-semibold">{selectedTrip.input.destination || 'N/A'}</span>
+                  <span className="font-semibold">{input.destination || 'N/A'}</span>
                 </div>
                 <div>
                   <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-550' : 'text-slate-400'}`}>Origin</span>
-                  <span className="font-semibold">{selectedTrip.input.origin || 'N/A'}</span>
+                  <span className="font-semibold">{input.origin || 'N/A'}</span>
                 </div>
                 <div>
                   <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-550' : 'text-slate-400'}`}>Dates</span>
                   <span className="font-semibold">
-                    {selectedTrip.input.start_date || 'YYYY-MM-DD'} – {selectedTrip.input.end_date || 'YYYY-MM-DD'}
+                    {input.start_date || 'YYYY-MM-DD'} – {input.end_date || 'YYYY-MM-DD'}
                   </span>
                 </div>
                 <div>
                   <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-550' : 'text-slate-400'}`}>Travelers</span>
-                  <span className="font-semibold">{selectedTrip.input.travelers || 0}</span>
+                  <span className="font-semibold">{input.travelers || 0}</span>
                 </div>
                 <div>
                   <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-550' : 'text-slate-400'}`}>Interests</span>
                   <span className="font-semibold">
-                    {selectedTrip.input.interests?.join(', ') || 'General'}
+                    {input.interests?.join(', ') || 'General'}
                   </span>
                 </div>
               </div>
