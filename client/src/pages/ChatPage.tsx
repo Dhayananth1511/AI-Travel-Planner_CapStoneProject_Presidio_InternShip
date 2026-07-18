@@ -747,17 +747,54 @@ export default function ChatPage() {
           >
             {isChatOpen ? (
               <>
-                <X className="h-3.5 w-3.5 text-indigo-450" />
+                <X className="h-3.5 w-3.5 text-indigo-455" />
                 Close Chat
               </>
             ) : (
               <>
-                <Bot className="h-3.5 w-3.5 text-indigo-450 animate-pulse" />
+                <Bot className="h-3.5 w-3.5 text-indigo-455 animate-pulse" />
                 Open Chat Agent
               </>
             )}
           </button>
         </div>
+
+        {activeTab === 'inspector' && context && (() => {
+          const navItems = [
+            { id: 'section-parameters', label: 'Params', icon: '📋', show: true },
+            { id: 'section-budget', label: 'Budget Fund', icon: '⚖️', show: !!context.budget },
+            { id: 'section-weather', label: 'Weather', icon: '🌦️', show: !!context.weather?.forecast },
+            { id: 'section-lodging', label: 'Hotels', icon: '🏨', show: !!context.accommodation },
+            { id: 'section-transit', label: 'Transport', icon: '🚗', show: !!context.transport },
+            { id: 'section-sightseeing', label: 'Sightseeing', icon: '🎡', show: !!context.activities },
+            { id: 'section-local-transit', label: 'Local Cab', icon: '🛺', show: !!(context.local_transport?.distances_from_hotel?.length > 0) }
+          ];
+
+          return (
+            <div className={`flex items-center gap-2 px-6 py-2.5 border-b overflow-x-auto no-scrollbar shrink-0 select-none ${
+              isDark ? 'bg-slate-900/15 border-slate-805' : 'bg-slate-50/50 border-slate-205'
+            }`}>
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                Jump to:
+              </span>
+              <div className="flex gap-2">
+                {navItems.filter(item => item.show).map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })}
+                    className={`flex items-center gap-1 px-2.5 py-1 text-[10.5px] font-bold rounded-lg border transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                      isDark 
+                        ? 'bg-slate-900/60 hover:bg-slate-800 border-slate-800 text-indigo-400 hover:text-white' 
+                        : 'bg-white hover:bg-indigo-50 border-slate-202 text-indigo-650 shadow-sm'
+                    }`}
+                  >
+                    {item.icon} {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="p-6 flex-1 overflow-y-auto">
           {activeTab === 'inspector' ? (

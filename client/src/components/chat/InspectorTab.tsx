@@ -146,10 +146,12 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
       )}
 
             {/* CHECKED PARAMETERS CARD */}
-      <CheckedParametersCard context={context} isDark={isDark} />
+      <div id="section-parameters" className="scroll-mt-16">
+        <CheckedParametersCard context={context} isDark={isDark} />
+      </div>
       {/* CORE BUDGET GUARDIAN SUMMARY */}
       {context.budget && (
-        <div className="premium-card rounded-xl p-4 space-y-2">
+        <div id="section-budget" className="premium-card rounded-xl p-4 space-y-2 scroll-mt-16">
           <div className="flex justify-between items-center">
             <h4 className={`text-xs font-bold uppercase tracking-widest ${
               isDark ? 'text-emerald-400' : 'text-emerald-700'
@@ -409,11 +411,13 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
       )}
 
             {/* WEATHER ANALYSIS SECTION */}
-      <WeatherSpecialistCard context={context} isDark={isDark} />
+      <div id="section-weather" className="scroll-mt-16">
+        <WeatherSpecialistCard context={context} isDark={isDark} />
+      </div>
 
       {/* ACCOMMODATION / HOTELS COMPONENT SECTION */}
       {context.accommodation && (
-        <div className="premium-card rounded-xl p-4 space-y-2">
+        <div id="section-lodging" className="premium-card rounded-xl p-4 space-y-2 scroll-mt-16">
           <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
             isDark ? 'text-indigo-400' : 'text-indigo-700'
           }`}>
@@ -636,7 +640,7 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
 
       {/* TRANSIT SPECIALIST DETAILS */}
       {context.transport && (
-        <div className="premium-card rounded-xl p-4 space-y-2">
+        <div id="section-transit" className="premium-card rounded-xl p-4 space-y-2 scroll-mt-16">
           <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
             isDark ? 'text-indigo-400' : 'text-indigo-700'
           }`}>
@@ -655,7 +659,7 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
 
       {/* ACTIVITIES SPECIALIST ATTENTION */}
       {context.activities && (
-        <div className="premium-card rounded-xl p-4 space-y-2">
+        <div id="section-sightseeing" className="premium-card rounded-xl p-4 space-y-2 scroll-mt-16">
           <div className="flex items-center justify-between">
             <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1 ${
               isDark ? 'text-indigo-400' : 'text-indigo-700'
@@ -719,7 +723,7 @@ export const InspectorTab: React.FC<InspectorTabProps> = ({
 
             {/* LOCAL TRANSIT — Hotel → Tourist Places (Geoapify-powered) */}
       {context.local_transport && context.local_transport.distances_from_hotel && context.local_transport.distances_from_hotel.length > 0 && (
-        <div className="premium-card rounded-xl p-4 space-y-3">
+        <div id="section-local-transit" className="premium-card rounded-xl p-4 space-y-3 scroll-mt-16">
           <div className="flex items-center justify-between">
             <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${
               isDark ? 'text-amber-400' : 'text-amber-700'
