@@ -29,7 +29,7 @@ const routerLlm = createChatModel({
 
 function isBudgetOnlyAdjustment(userMessage: string): boolean {
   const message = userMessage.toLowerCase();
-  const mentionsBudget = /(budget|increase limit|increase budget|raise budget|more money|adjust budget|budget ceiling|limit to|my budget is)/.test(message);
+  const mentionsBudget = /(budget|increase limit|increase budget|raise budget|more money|adjust budget|budget ceiling|limit to|my budget is|increase to comfortable|comfortable budget|make it comfortable|raise the limit|increase the limit|add more funds|more funds|up the budget|higher budget|bump the budget|increase spend|more spending|can afford more|afford more|i have more|more cash|increase to \d|raise to \d|bump to \d|up to \d)/.test(message);
   const mentionsOtherReplanTargets = /(change hotel|different hotel|cheaper hotel|find hotel|find cheaper|change accommodation|different accommodation|change lodging|change stay|transport|flight|train|bus|date|day|duration|shorten|extend|activity|activities|restaurant|destination|go to|change to)/.test(message);
   return mentionsBudget && !mentionsOtherReplanTargets;
 }
