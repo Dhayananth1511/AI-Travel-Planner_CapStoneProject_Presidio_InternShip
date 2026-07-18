@@ -741,18 +741,18 @@ export default function ChatPage() {
           
           <button
             onClick={() => setIsChatOpen(!isChatOpen)}
-            className={`flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-bold px-3 py-1.5 border rounded-lg transition active:scale-95 cursor-pointer select-none ${
-              isDark ? 'bg-slate-900/55 hover:bg-slate-800/80 border-slate-800' : 'bg-slate-100 hover:bg-indigo-50 border-slate-200'
+            className={`flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-305 font-bold px-3 py-1.5 border rounded-lg transition active:scale-95 cursor-pointer select-none ${
+              isDark ? 'bg-slate-900/55 hover:bg-slate-800/80 border-slate-800' : 'bg-slate-100 hover:bg-indigo-50 border-slate-205'
             }`}
           >
             {isChatOpen ? (
               <>
-                <X className="h-3.5 w-3.5 text-indigo-400" />
+                <X className="h-3.5 w-3.5 text-indigo-450" />
                 Close Chat
               </>
             ) : (
               <>
-                <Bot className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+                <Bot className="h-3.5 w-3.5 text-indigo-450 animate-pulse" />
                 Open Chat Agent
               </>
             )}
@@ -830,10 +830,10 @@ export default function ChatPage() {
               </Link>
               <button
                 onClick={() => setIsChatOpen(false)}
-                className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 border rounded cursor-pointer transition ${
+                className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 border rounded cursor-pointer transition md:hidden ${
                   isDark
                     ? 'text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-slate-900 border-indigo-900/30'
-                    : 'text-indigo-650 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 border-indigo-200'
+                    : 'text-indigo-650 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 border-indigo-202'
                 }`}
                 title="Hide Chat"
               >
@@ -1097,44 +1097,65 @@ export default function ChatPage() {
 
       {showDiscardConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className={`premium-card rounded-2xl max-w-sm w-full p-6 mx-4 border shadow-2xl space-y-4 ${
-            isDark ? 'border-card-border/80 bg-card-bg/95' : 'border-slate-200 bg-white'
+          <div className={`premium-card rounded-2xl max-w-md w-full p-6 mx-4 border shadow-2xl space-y-4 ${
+            isDark ? 'border-card-border/80 bg-card-bg/95' : 'border-slate-205 bg-white'
           }`}>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20">
-                <Trash2 className="h-5 w-5 text-red-400" />
+                <Trash2 className="h-5 w-5 text-red-500" />
               </div>
               <div>
-                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Discard Trip</h3>
-                <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>This action cannot be undone.</p>
+                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Discard Trip Plan Options</h3>
+                <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Choose how you want to discard this plan.</p>
               </div>
             </div>
-            <p className={`text-xs leading-normal ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-              Are you sure you want to discard and cancel your trip plan to (or design for) <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{context?.input?.destination || 'this destination'}</span>?
+            <p className={`text-xs leading-normal space-y-2 ${isDark ? 'text-slate-350' : 'text-slate-600'}`}>
+              What would you like to do with your trip plan to <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{context?.input?.destination || 'this destination'}</span>?
+              <span className="block mt-2">
+                • <strong>Cancel Plan (Soft)</strong>: Stops planning, sets status to Cancelled, and saves it in your Cancelled tab.
+              </span>
+              <span className="block mt-1">
+                • <strong>Delete Permanently</strong>: Completely erases the trip and chat record from the database.
+              </span>
             </p>
-            <div className="flex gap-2 justify-end pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
               <button
                 onClick={() => setShowDiscardConfirm(false)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold sm:order-1 transition active:scale-95 cursor-pointer ${
                   isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
-                Cancel
+                Keep Planning
+              </button>
+              <button
+                onClick={async () => {
+                  setShowDiscardConfirm(false);
+                  try {
+                    await tripService.cancelTrip(context.sessionId);
+                    toast.success('Trip soft-cancelled successfully.');
+                    navigate('/dashboard');
+                  } catch (err: any) {
+                    toast.error('Failed to cancel trip: ' + (err.response?.data?.message || err.message));
+                  }
+                }}
+                className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white sm:order-2 transition active:scale-95 cursor-pointer"
+              >
+                Cancel Plan (Soft)
               </button>
               <button
                 onClick={async () => {
                   setShowDiscardConfirm(false);
                   try {
                     await tripService.deleteTrip(context.sessionId);
-                    toast.success('Trip discarded successfully.');
+                    toast.success('Trip deleted permanently.');
                     navigate('/dashboard');
                   } catch (err: any) {
-                    toast.error('Failed to cancel trip: ' + (err.response?.data?.message || err.message));
+                    toast.error('Failed to delete trip: ' + (err.response?.data?.message || err.message));
                   }
                 }}
-                className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition active:scale-95 cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white sm:order-3 transition active:scale-95 cursor-pointer"
               >
-                Discard
+                Delete Permanently
               </button>
             </div>
           </div>
