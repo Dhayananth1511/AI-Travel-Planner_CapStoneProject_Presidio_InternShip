@@ -16,8 +16,8 @@ const llm = createChatModel({
 });
 
 export const transportTool = tool(
-  async ({ origin, destination, travel_date, travelers }) => {
-    logger.debug('Transport tool fetching from MCP', { origin, destination, travel_date, travelers });
+  async ({ origin, destination, travel_date, travelers, preferred_mode, user_query }) => {
+    logger.debug('Transport tool fetching from MCP', { origin, destination, travel_date, travelers, preferred_mode, user_query });
     const data = await getTransportOptions(origin, destination, travel_date, travelers);
 
     // Standalone LLM Reasoning Phase
@@ -34,9 +34,35 @@ export const transportTool = tool(
       reasoning = 'Transit options are scheduled and recommended based on speed and cost.';
     }
 
-    // Default selected option is the cheapest
-    const selectedOption = data.options.reduce((cheapest: any, curr: any) =>
-      curr.cost_inr < cheapest.cost_inr ? curr : cheapest, data.options[0] || null);
+    // Determine target mode preference
+    let targetMode: 'Flight' | 'Train' | 'Bus' | null = null;
+    if (preferred_mode && preferred_mode !== 'none') {
+      targetMode = preferred_mode as any;
+    } else if (user_query) {
+      const qLower = user_query.toLowerCase();
+      if (/\b(?:flight|plane|fly|air|airline|flights|aviation)\b/i.test(qLower)) {
+        targetMode = 'Flight';
+      } else if (/\b(?:train|rail|railway|trains)\b/i.test(qLower)) {
+        targetMode = 'Train';
+      } else if (/\b(?:bus|coach|buses|volvo)\b/i.test(qLower)) {
+        targetMode = 'Bus';
+      }
+    }
+
+    // Default selected option is cheapest of targetMode, or cheapest overall
+    let selectedOption = null;
+    if (targetMode) {
+      const modeOptions = data.options.filter((opt: any) => opt.mode === targetMode);
+      if (modeOptions.length > 0) {
+        selectedOption = modeOptions.reduce((cheapest: any, curr: any) =>
+          curr.cost_inr < cheapest.cost_inr ? curr : cheapest, modeOptions[0]);
+      }
+    }
+
+    if (!selectedOption) {
+      selectedOption = data.options.reduce((cheapest: any, curr: any) =>
+        curr.cost_inr < cheapest.cost_inr ? curr : cheapest, data.options[0] || null);
+    }
 
     const finalResult = {
       ...data,
@@ -54,6 +80,8 @@ export const transportTool = tool(
       destination: z.string().describe('Destination city name'),
       travel_date: z.string().describe('Travel departure date (YYYY-MM-DD)'),
       travelers: z.number().describe('Number of travelers'),
+      preferred_mode: z.enum(['Flight', 'Train', 'Bus', 'none']).optional().describe('Filter/preference for transport mode'),
+      user_query: z.string().optional().describe('The user message or query context to scan for transport choice preferences'),
     }),
   }
 );

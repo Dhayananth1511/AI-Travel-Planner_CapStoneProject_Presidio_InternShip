@@ -24,6 +24,8 @@ const llm = createChatModel({
 
 import { TripContext, PlannerAgentResult } from '../types';
 import { extractJson } from '../utils/jsonHelpers';
+import { parseAndAdjustDates } from '../utils/tripHelpers';
+
 
 
 export async function runPlannerAgent(
@@ -166,10 +168,21 @@ You must respond ONLY with a valid JSON block of this exact structure:
     delete updatedInput.max_price_per_night;
   }
 
+  // Programmatic Date Adjustments Fallback
+  const adjustedDates = parseAndAdjustDates(userMessage, context.input?.start_date, context.input?.end_date);
+  if (adjustedDates) {
+    logger.info('[runPlannerAgent] Programmatic slot override for dates/duration details', adjustedDates);
+    updatedInput = {
+      ...updatedInput,
+      ...adjustedDates
+    };
+  }
+
   let updatedContext: TripContext = {
     ...context,
     input: updatedInput
   };
+
 
   // --- India Location Validation ---
   if (updatedInput.destination && updatedInput.destination.trim() !== '') {
@@ -209,14 +222,21 @@ You must respond ONLY with a valid JSON block of this exact structure:
   const newStartDate = updatedInput.start_date;
   const previousEndDate = context.input.end_date;
   const newEndDate = updatedInput.end_date;
+  const previousTravelers = context.input.travelers;
+  const newTravelers = updatedInput.travelers;
 
   const datesChanged =
     (previousStartDate && newStartDate && previousStartDate !== newStartDate) ||
     (previousEndDate && newEndDate && previousEndDate !== newEndDate);
 
-  if (destinationChanged || datesChanged) {
+  const travelersChanged =
+    previousTravelers !== undefined &&
+    newTravelers !== undefined &&
+    previousTravelers !== newTravelers;
+
+  if (destinationChanged || datesChanged || travelersChanged) {
     logger.info(
-      `Supervisor: ${destinationChanged ? 'Destination' : 'Dates'} changed. Clearing all stale cached agent outputs.`,
+      `Supervisor: ${destinationChanged ? 'Destination' : datesChanged ? 'Dates' : 'Travelers'} changed. Clearing all stale cached agent outputs.`,
       { sessionId: context.sessionId }
     );
     updatedContext.weather = undefined;

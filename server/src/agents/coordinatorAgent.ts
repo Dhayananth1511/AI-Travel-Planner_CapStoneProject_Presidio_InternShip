@@ -193,7 +193,7 @@ export async function runParallelAgents(context: TripContext, userMessage: strin
     logger.warn('[Coordinator] Enforcing fetch_transport — transport missing from context after data clear.');
     toolCalls.push({
       name: 'fetch_transport',
-      args: { origin: input.origin!, destination: input.destination!, travel_date: input.start_date!, travelers: input.travelers },
+      args: { origin: input.origin!, destination: input.destination!, travel_date: input.start_date!, travelers: input.travelers, user_query: userMessage },
     });
   }
   // fetch_accommodation enforcement is gated below by the hard hotel-selection guard,
@@ -260,6 +260,7 @@ export async function runParallelAgents(context: TripContext, userMessage: strin
       if (input.end_date) args.end_date = input.end_date;
     } else if (toolName === 'fetch_transport') {
       if (input.start_date) args.travel_date = input.start_date;
+      if (!args.user_query) args.user_query = userMessage;
     } else if (toolName === 'fetch_accommodation') {
       if (input.start_date) args.check_in = input.start_date;
       if (input.end_date) args.check_out = input.end_date;
@@ -339,12 +340,12 @@ export async function synthesizeTripPlan(context: TripContext): Promise<string> 
     weather_info: context.weather?.reasoning || 'Check local weather conditions on arrival.',
     accommodation: context.accommodation?.recommended || 'Comfortable local accommodation',
     accommodation_notice: context.accommodation?.price_constraint_notice || '',
-    transport: context.transport?.options?.[0]
+    transport: context.transport?.selected_option || context.transport?.options?.[0]
       ? {
-          provider: context.transport.options[0].provider,
-          type: context.transport.options[0].type,
-          price_inr: context.transport.options[0].price_inr,
-          duration: context.transport.options[0].duration,
+          provider: (context.transport.selected_option || context.transport.options[0]).operator,
+          type: (context.transport.selected_option || context.transport.options[0]).mode,
+          price_inr: (context.transport.selected_option || context.transport.options[0]).cost_inr,
+          duration: `${(context.transport.selected_option || context.transport.options[0]).duration_hrs} hrs`,
         }
       : 'Arranging own transport.',
     activities_interests: {

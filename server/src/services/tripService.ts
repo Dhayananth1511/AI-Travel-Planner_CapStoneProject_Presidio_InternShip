@@ -11,7 +11,7 @@ import { synthesizeTripPlan } from '../agents/coordinatorAgent';
 import { isMessageSafe } from '../utils/inputSanitizer';
 import { createCalendarEvent } from '../mcp-servers/calendarMCP';
 import { verifyRazorpayPayment, fetchRazorpayPayment } from '../mcp-servers/razorpayMCP';
-import { extractExplicitReplanInput } from '../utils/tripHelpers';
+import { extractExplicitReplanInput, parseAndAdjustDates } from '../utils/tripHelpers';
 import fs from 'fs';
 
 export const createOrUpdateUserTrip = async (
@@ -167,11 +167,13 @@ export const rejectUserTripItinerary = async (tripId: string, reason: string, us
   const context = trip.toObject() as any;
   const { updatedContext } = await runReplanningAgent(context, reason);
   const explicitInput = extractExplicitReplanInput(reason);
+  const adjustedDates = parseAndAdjustDates(reason, context.input?.start_date, context.input?.end_date);
 
   updatedContext.input = {
     ...(updatedContext.input || {}),
     ...(explicitInput.destination ? { destination: explicitInput.destination } : {}),
     ...(explicitInput.origin ? { origin: explicitInput.origin } : {}),
+    ...(adjustedDates || {}),
   };
 
   // Always clear the itinerary when replanning so it gets freshly regenerated

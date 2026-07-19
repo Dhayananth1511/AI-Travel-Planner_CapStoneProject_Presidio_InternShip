@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -102,6 +102,45 @@ export default function ChatPage() {
   const [bookingRefs, setBookingRefs] = useState<{ hotel?: string; transport?: string; calendar?: string } | null>(null);
   const [isCancelPending, setIsCancelPending] = useState(false);
   
+  // Drag-to-Resize Chat States & Logic
+  const [chatWidth, setChatWidth] = useState(440);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (mouseMoveEvent: MouseEvent) => {
+      if (isResizing) {
+        const newWidth = window.innerWidth - mouseMoveEvent.clientX;
+        if (newWidth >= 300 && newWidth <= 800) {
+          setChatWidth(newWidth);
+        }
+      }
+    },
+    [isResizing]
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch existing trip on mount if tripId query param is present
@@ -901,7 +940,17 @@ export default function ChatPage() {
 
       {/* RIGHT CANVAS: Chat & Conversation (Narrow sidebar layout on the right) */}
       {isChatOpen && (
-        <div className={`w-full md:w-[440px] flex flex-col border-l overflow-hidden shrink-0 animate-fadeIn ${isDark ? 'bg-slate-950/20 border-card-border' : 'bg-white/80 border-slate-200'}`}>
+        <div
+          style={{ width: window.innerWidth >= 768 ? `${chatWidth}px` : '100%' }}
+          className={`relative flex flex-col border-l overflow-hidden shrink-0 animate-fadeIn ${isDark ? 'bg-slate-950/20 border-card-border' : 'bg-white/80 border-slate-200'}`}
+        >
+          {/* Resize Handle */}
+          <div
+            onMouseDown={startResizing}
+            className={`hidden md:flex absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/80 transition-colors z-50 items-center justify-center`}
+          >
+            <div className="w-[2px] h-6 rounded-full bg-slate-400/40" />
+          </div>
           
           {/* Sub Header back button with Discard option + Google Calendar connect */}
           <div className={`p-3 border-b flex items-center justify-between shrink-0 ${isDark ? 'bg-slate-950/25 border-card-border' : 'bg-white/90 border-slate-200'}`}>
