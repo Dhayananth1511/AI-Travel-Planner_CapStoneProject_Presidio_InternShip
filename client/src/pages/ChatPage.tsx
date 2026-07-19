@@ -55,12 +55,29 @@ const INTEREST_TAGS = [
   { label: '⛷️ Winter Sports', value: 'winter sports' },
 ];
 
+const getFutureDatesStr = (offset: number, duration: number) => {
+  const start = new Date();
+  start.setDate(start.getDate() + offset);
+  const end = new Date(start);
+  end.setDate(end.getDate() + duration);
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  return { start: formatDate(start), end: formatDate(end) };
+};
+
 export default function ChatPage() {
   const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
   const [searchParams, setSearchParams] = useSearchParams();
   const tripIdParam = searchParams.get('tripId');
+
+  const goaDates = getFutureDatesStr(15, 3);
+  const shimlaDates = getFutureDatesStr(25, 5);
 
   const [message, setMessage] = useState('');
 
@@ -635,10 +652,10 @@ export default function ChatPage() {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto">
                   {[
-                    { label: "🏖️ Weekend in Goa with friends", prompt: "Plan a 3-day weekend trip to Goa for 4 friends, budget ₹15,000, starting next month." },
+                    { label: "🏖️ Weekend in Goa with friends", prompt: `Plan a 3-day trip to Goa from Mumbai for 4 travelers, budget ₹35,000, starting from ${goaDates.start} to ${goaDates.end} with interests in beach, relaxation.` },
                     { label: "🏔️ Ooty solitude getaway (Solo)", prompt: "Create a 3-day solo nature trip to Ooty, budget ₹10,000, starting next month." },
                     { label: "🛕 Temple tour of historic Hampi", prompt: "Design a 4-day historic trip to Hampi for 2 travelers, budget ₹18,000." },
-                    { label: "🌲 Shimla nature sightseeing tour", prompt: "Plan a 5-day nature sightseeing trip to Shimla under ₹25,000." }
+                    { label: "🌲 Shimla nature sightseeing tour", prompt: `Plan a 5-day nature sightseeing trip to Shimla from Delhi for 2 travelers, budget ₹25,000, starting from ${shimlaDates.start} to ${shimlaDates.end} with interests in nature, sightseeing.` }
                   ].map((s, idx) => (
                     <button
                       key={idx}
