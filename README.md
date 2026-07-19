@@ -150,6 +150,11 @@ graph TD
 
 Details admin authorization, role validation middleware, navigation to administrative management sections, and metrics visualization dashboards. Admin features fetch directly from database indexes without hitting AI interface layers.
 
+### Support Ticket Resolution & Payment Verification
+* **Dedicated Helpdesk Portal (`/support`)**: Allows travelers to log help requests, specifically supporting **Payment/Razorpay ID Verification** with custom transaction IDs and the exact amount paid.
+* **Prompt Resolution Panel**: Administrators can view passenger ticket logs, evaluate category details, review transaction inputs, submit dynamic resolution replies, and close queries.
+* **Audit & Payment Matching Logs**: Displays transaction amounts directly inside the Global Trip Operations Log table list (`Budget Cap` column) and the interactive trip detailed view modal for admins to audit and verify payments against bookings.
+
 ```mermaid
 graph TD
     classDef default fill:#1e1e2e,stroke:#cdd6f4,stroke-width:2px,color:#cdd6f4;

@@ -465,6 +465,11 @@ export default function AdminDashboard() {
                             ? `₹${(trip.budget?.total_cost_inr || trip.budget?.total_estimated_cost || 0).toLocaleString()}`
                             : 'N/A'}
                         </div>
+                        {trip.booking?.refs?.amountPaid !== undefined && (
+                          <div className="text-[10px] mt-0.5 font-bold text-indigo-400">
+                            Paid: ₹{trip.booking.refs.amountPaid.toLocaleString()}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4.5 text-center">
                         <span

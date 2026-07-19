@@ -10,7 +10,7 @@ import { runItineraryAgent } from '../agents/itineraryAgent';
 import { synthesizeTripPlan } from '../agents/coordinatorAgent';
 import { isMessageSafe } from '../utils/inputSanitizer';
 import { createCalendarEvent } from '../mcp-servers/calendarMCP';
-import { verifyRazorpayPayment } from '../mcp-servers/razorpayMCP';
+import { verifyRazorpayPayment, fetchRazorpayPayment } from '../mcp-servers/razorpayMCP';
 import { extractExplicitReplanInput } from '../utils/tripHelpers';
 import fs from 'fs';
 
@@ -784,9 +784,41 @@ export const verifyPaymentAndApproveTrip = async (
   // 3. Run booking agent — pass Razorpay payment ID so it appears in booking refs
   const booking = await runBookingAgent(context, user?.email || '', paymentData.razorpay_payment_id);
 
+  let amountPaid = 0;
+  try {
+    const paymentResponse = await fetchRazorpayPayment(paymentData.razorpay_payment_id);
+    if (paymentResponse.success && paymentResponse.payment) {
+      amountPaid = Math.round(paymentResponse.payment.amount / 100);
+    }
+  } catch (err: any) {
+    logger.warn(`Failed to fetch payment details from Razorpay: ${err.message}`);
+  }
+
+  // Fallback calculation
+  if (!amountPaid) {
+    const accommodationCost = context.budget?.accommodation || 0;
+    const transportCost     = context.budget?.transport     || 0;
+    const hotelFallback     = context.accommodation?.selected_hotel?.total_cost_inr || 0;
+    const transportFallback = context.transport?.selected_option?.cost_inr || context.transport?.options?.[0]?.cost_inr || 0;
+    const billableAccommodation = accommodationCost || hotelFallback;
+    const billableTransport     = transportCost     || transportFallback;
+    const billableTotal         = billableAccommodation + billableTransport;
+    const isHotelSkipped     = context.accommodation?.selected_category === 'skipped' || context.accommodation?.selected_hotel?.name === 'Self Arranged';
+    const isTransportSkipped = context.transport?.selected_option?.operator === 'Self Arranged';
+    amountPaid = isHotelSkipped     ? billableTransport
+               : isTransportSkipped ? billableAccommodation
+               : billableTotal;
+  }
+
   // 4. Update trip to CONFIRMED status
   trip.status = 'CONFIRMED';
-  trip.booking = { refs: booking.bookingRefs, confirmed_at: new Date() };
+  trip.booking = {
+    refs: {
+      ...booking.bookingRefs,
+      amountPaid,
+    },
+    confirmed_at: new Date()
+  };
 
   // Append payment-verified confirmation message to conversationHistory so it persists on reload
   const rrefs = booking.bookingRefs;
@@ -804,7 +836,7 @@ export const verifyPaymentAndApproveTrip = async (
   await trip.save();
 
   const confirmedTrip = await Trip.findOne({ sessionId: tripId, userId });
-  logger.info(`[razorpay] Trip ${tripId} confirmed after verified payment ${paymentData.razorpay_payment_id}`);
+  logger.info(`[razorpay] Trip ${tripId} confirmed after verified payment ${paymentData.razorpay_payment_id} for amount ₹${amountPaid}`);
 
-  return { bookingRefs: booking.bookingRefs, status: 'CONFIRMED', trip: confirmedTrip };
+  return { bookingRefs: { ...booking.bookingRefs, amountPaid }, status: 'CONFIRMED', trip: confirmedTrip };
 };

@@ -164,6 +164,8 @@ jobs:
               "OPENWEATHER_API_KEY"
               "PORT"
               "CLIENT_URL"
+              "RAZORPAY_KEY_ID"
+              "RAZORPAY_KEY_SECRET"
             )
 
             for KEY in "${KEYS[@]}"; do

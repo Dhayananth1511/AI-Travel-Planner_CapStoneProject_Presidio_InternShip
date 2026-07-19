@@ -49,6 +49,7 @@ export interface TripItem {
       transport?: string;
       calendar?: string;
       payment?: string;
+      amountPaid?: number;
     };
     confirmed_at?: string | null;
   };

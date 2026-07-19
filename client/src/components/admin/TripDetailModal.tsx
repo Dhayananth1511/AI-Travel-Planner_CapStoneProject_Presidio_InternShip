@@ -121,6 +121,12 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                       <code className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10.5px] ${isDark ? 'bg-slate-800 text-violet-400' : 'bg-violet-100 text-violet-800'}`}>{selectedTrip.booking.refs?.payment.replace(/^RZP-/, '')}</code>
                     </div>
                   )}
+                  {selectedTrip.booking.refs?.amountPaid !== undefined && (
+                    <div>
+                      <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-555' : 'text-slate-400'}`}>💰 Amount Paid via Razorpay</span>
+                      <span className="font-bold text-[11px] text-emerald-450">₹{selectedTrip.booking.refs.amountPaid.toLocaleString()}</span>
+                    </div>
+                  )}
                   {selectedTrip.booking.confirmed_at && (
                     <div>
                       <span className={`block text-[10px] uppercase font-bold ${isDark ? 'text-slate-555' : 'text-slate-400'}`}>Verified At</span>
