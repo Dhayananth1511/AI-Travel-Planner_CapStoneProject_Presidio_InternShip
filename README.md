@@ -4,7 +4,13 @@ LIVE : https://d1yygo5zherh2b.cloudfront.net
 # Travel Planner AI Agent - Capstone Project Documentation
 
 This repository contains the architecture, workflow designs, and system integration details for the Travel Planner AI Client/Server application. The project serves as an enterprise-grade capstone integrating architectural principles and technologies demonstrating a production-ready, multi-agent AI system backed by MCP tool calling, dual-layer memory, and AWS cloud infrastructure.
+my Capstone Project titled AI Travel Planner – A Multi-Agent AI Travel Assistant.
 
+The goal of this project is to build an intelligent travel planning platform where users can simply describe their travel requirements in natural language, and the system automatically creates a complete travel plan.
+
+Instead of filling long forms, the user interacts with an AI assistant. The assistant understands the request, gathers information from multiple services, generates an itinerary, estimates the budget, and helps the user manage the trip from planning until confirmation.
+
+This project demonstrates concepts including Multi-Agent AI, Model Context Protocol (MCP), Large Language Models, secure backend development, cloud deployment, and modern software engineering practices.
 ---
 
 ## Table of Contents
